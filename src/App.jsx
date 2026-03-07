@@ -1,1160 +1,1014 @@
 import { useState, useEffect, useRef } from "react";
 
-// ─── Hardcoded teacher data ───────────────────────────────────────────────────
 const TEACHER = {
-  name: " حسوب ",
+  name: "حسوب",
   pic: "https://res.cloudinary.com/dw45jvxmf/image/upload/v1772363764/download_2_eugyiz.jpg",
   prompt: "",
-  bio: "",
   language: "ar",
-  quote: "   .",
   videos: {
-    recording:
-      "https://res.cloudinary.com/dw45jvxmf/video/upload/v1772363702/listening_eb8mjk.mp4",
-    processing:
-      "https://res.cloudinary.com/dw45jvxmf/video/upload/v1772363725/thinking_x9p6pa.mp4",
-    speaking:
-      "https://res.cloudinary.com/dw45jvxmf/video/upload/v1772363701/lips_moving_c9ebpv.mp4",
+    recording: "https://res.cloudinary.com/dw45jvxmf/video/upload/v1772363702/listening_eb8mjk.mp4",
+    processing: "https://res.cloudinary.com/dw45jvxmf/video/upload/v1772363725/thinking_x9p6pa.mp4",
+    speaking:   "https://res.cloudinary.com/dw45jvxmf/video/upload/v1772363701/lips_moving_c9ebpv.mp4",
   },
 };
 
-// ─── Inline CSS ───────────────────────────────────────────────────────────────
+const DAILY_LIMIT = 5;
+const store = { count: 0, date: new Date().toDateString() };
+function getRemaining() {
+  if (store.date !== new Date().toDateString()) { store.count = 0; store.date = new Date().toDateString(); }
+  return DAILY_LIMIT - store.count;
+}
+function useLimit() { store.count++; }
+
+const DEFAULT_SETTINGS = {
+  topic: "", speakingStyle: "conversational", responseLength: "short",
+  difficultyLevel: "medium", includeExamples: true, useAnalogies: false, encouragement: true,
+};
+
+function formatTime(s) {
+  return `${Math.floor(s/60).toString().padStart(2,"0")}:${(s%60).toString().padStart(2,"0")}`;
+}
+
+function buildSystemPrompt(s) {
+  let p = TEACHER.prompt;
+  if (s.topic) p += `\n\nموضوع المحادثة: ${s.topic}`;
+  const lengths = { veryShort:"أجب في جملة واحدة فقط", short:"أجب بإجابات قصيرة (2-3 جمل)", medium:"أجب بشكل متوسط الطول", detailed:"قدم إجابة مفصلة" };
+  const diffs   = { beginner:"استخدم لغة بسيطة جداً", easy:"اشرح بطريقة سهلة", medium:"استخدم مستوى متوسط", advanced:"استخدم مصطلحات متقدمة" };
+  const styles  = { conversational:"تحدث بأسلوب ودي طبيعي", professional:"استخدم أسلوباً مهنياً", enthusiastic:"كن متحمساً ومشجعاً", socratic:"استخدم طريقة سقراط" };
+  p += `\n\n${lengths[s.responseLength]}\n${diffs[s.difficultyLevel]}\n${styles[s.speakingStyle]}`;
+  if (s.includeExamples) p += "\nقدم أمثلة عملية عند الحاجة";
+  if (s.useAnalogies)    p += "\nاستخدم التشبيهات لتوضيح المفاهيم";
+  if (s.encouragement)   p += "\nشجع الطالب وامدحه عند الإجابة الصحيحة";
+  return p;
+}
+
+const GearIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
+    <circle cx="12" cy="12" r="3"/>
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+  </svg>
+);
+
 const STYLES = `
+  @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap');
+
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
-    background: #0a0a0f;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #0a0a0a;
+    font-family: 'Tajawal', sans-serif;
     direction: rtl;
     overflow: hidden;
     height: 100vh;
+    width: 100vw;
   }
 
-  .video-call-container {
-    position: relative;
+  /* ── SHELL ── */
+  .shell {
     width: 100vw;
     height: 100vh;
     display: flex;
-    align-items: center;
-    justify-content: center;
-    background: linear-gradient(135deg, #0a0a0f 0%, #0d1520 50%, #0a0f1a 100%);
+    flex-direction: column;
+    background: #111;
+    position: relative;
     overflow: hidden;
   }
 
-  /* ── Animated background orbs ── */
-  .background-orbs {
+  /* ── VIDEO BACKGROUND ── */
+  .video-bg {
     position: absolute;
     inset: 0;
-    pointer-events: none;
     z-index: 0;
   }
-  .orb {
-    position: absolute;
-    border-radius: 50%;
-    filter: blur(80px);
-    opacity: 0.15;
-    animation: orbFloat 8s ease-in-out infinite alternate;
-  }
-  .orb-1 {
-    width: 400px; height: 400px;
-    background: radial-gradient(circle, #1a6b4a, transparent);
-    top: -100px; left: -100px;
-    animation-delay: 0s;
-  }
-  .orb-2 {
-    width: 350px; height: 350px;
-    background: radial-gradient(circle, #c9a227, transparent);
-    bottom: -80px; right: -80px;
-    animation-delay: -3s;
-  }
-  .orb-3 {
-    width: 300px; height: 300px;
-    background: radial-gradient(circle, #1a4a6b, transparent);
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    animation-delay: -6s;
-  }
-  @keyframes orbFloat {
-    from { transform: scale(1) translate(0, 0); }
-    to   { transform: scale(1.2) translate(20px, -20px); }
-  }
-
-  /* ── Main video wrapper ── */
-  .video-wrapper {
-    position: relative;
-    z-index: 1;
-    width: min(480px, 95vw);
-    height: min(780px, 95vh);
-    background: rgba(15, 20, 30, 0.85);
-    border: 1px solid rgba(201, 162, 39, 0.2);
-    border-radius: 28px;
-    backdrop-filter: blur(20px);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    box-shadow:
-      0 0 0 1px rgba(201,162,39,0.08),
-      0 30px 80px rgba(0,0,0,0.6),
-      inset 0 1px 0 rgba(255,255,255,0.05);
-  }
-
-  /* ── Top bar ── */
-  .call-top-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 16px 20px;
-    border-bottom: 1px solid rgba(255,255,255,0.06);
-    background: rgba(0,0,0,0.2);
-    flex-shrink: 0;
-  }
-  .call-info {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-  .avatar-wrapper {
-    position: relative;
-    width: 44px;
-    height: 44px;
-  }
-  .call-avatar {
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    object-fit: cover;
-    border: 2px solid rgba(201,162,39,0.4);
-  }
-  .online-indicator {
-    position: absolute;
-    bottom: 2px;
-    right: 2px;
-    width: 10px;
-    height: 10px;
-    background: #22c55e;
-    border-radius: 50%;
-    border: 2px solid #0f141e;
-    animation: pulse 2s infinite;
-  }
-  @keyframes pulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0.4); }
-    50%       { box-shadow: 0 0 0 6px rgba(34,197,94,0); }
-  }
-  .call-top-bar h3 {
-    color: #e8d5a3;
-    font-size: 15px;
-    font-weight: 600;
-    letter-spacing: 0.01em;
-  }
-  .call-time {
-    color: rgba(255,255,255,0.4);
-    font-size: 12px;
-    font-variant-numeric: tabular-nums;
-  }
-  .top-bar-right {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  /* ── Message counter ── */
-  .message-counter {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    background: rgba(201,162,39,0.1);
-    border: 1px solid rgba(201,162,39,0.25);
-    border-radius: 20px;
-    padding: 5px 10px;
-    cursor: default;
-  }
-  .counter-icon { font-size: 13px; }
-  .counter-number {
-    color: #c9a227;
-    font-size: 12px;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-  }
-
-  /* ── Settings button ── */
-  .settings-btn {
-    background: rgba(255,255,255,0.06);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 10px;
-    width: 36px;
-    height: 36px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: rgba(255,255,255,0.5);
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  .settings-btn:hover {
-    background: rgba(255,255,255,0.1);
-    color: #e8d5a3;
-  }
-
-  /* ── Status badge ── */
-  .status-badge {
-    font-size: 11px;
-    padding: 4px 10px;
-    border-radius: 20px;
-    font-weight: 600;
-    white-space: nowrap;
-    transition: all 0.3s;
-  }
-  .status-badge.connected  { background: rgba(34,197,94,0.15);  color: #22c55e; border: 1px solid rgba(34,197,94,0.3); }
-  .status-badge.recording  { background: rgba(239,68,68,0.15);  color: #ef4444; border: 1px solid rgba(239,68,68,0.3); animation: statusPulse 1s infinite; }
-  .status-badge.processing { background: rgba(234,179,8,0.15);  color: #eab308; border: 1px solid rgba(234,179,8,0.3); }
-  .status-badge.speaking   { background: rgba(59,130,246,0.15); color: #3b82f6; border: 1px solid rgba(59,130,246,0.3); }
-  @keyframes statusPulse {
-    0%, 100% { opacity: 1; }
-    50%       { opacity: 0.6; }
-  }
-
-  /* ── Video main area ── */
-  .video-main {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-    min-height: 0;
-  }
-  .video-frame {
-    position: relative;
+  .video-bg video,
+  .video-bg img {
     width: 100%;
     height: 100%;
-    border-radius: 20px;
-    overflow: hidden;
-    background: rgba(0,0,0,0.3);
-    border: 1px solid rgba(201,162,39,0.1);
-  }
-  .avatar-video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+    object-fit: contain;
+    object-position: center center;
     display: block;
+    background: #1a1a1a;
   }
-  .video-shimmer {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(
-      135deg,
-      transparent 40%,
-      rgba(201,162,39,0.03) 50%,
-      transparent 60%
-    );
-    animation: shimmer 3s linear infinite;
-    pointer-events: none;
-  }
-  @keyframes shimmer {
-    0%   { transform: translateX(-100%) translateY(-100%); }
-    100% { transform: translateX(100%) translateY(100%); }
-  }
-
-  /* ── Transcript sidebar ── */
-  .transcript-sidebar {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(10,14,22,0.96);
-    backdrop-filter: blur(10px);
-    z-index: 10;
-    display: flex;
-    flex-direction: column;
-    border-radius: 28px;
-    overflow: hidden;
-  }
-  .transcript-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 20px;
-    border-bottom: 1px solid rgba(255,255,255,0.08);
-    flex-shrink: 0;
-  }
-  .transcript-header h4 {
-    color: #e8d5a3;
-    font-size: 16px;
-  }
-  .close-transcript {
-    background: rgba(255,255,255,0.08);
-    border: none;
-    color: rgba(255,255,255,0.6);
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    cursor: pointer;
-    font-size: 14px;
-    transition: all 0.2s;
-  }
-  .close-transcript:hover { background: rgba(255,255,255,0.15); color: white; }
-  .transcript-messages {
-    flex: 1;
-    overflow-y: auto;
-    padding: 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(201,162,39,0.3) transparent;
-  }
-  .transcript-msg {
-    padding: 10px 14px;
-    border-radius: 12px;
-    max-width: 85%;
-  }
-  .transcript-msg.user {
-    background: rgba(26,107,74,0.2);
-    border: 1px solid rgba(26,107,74,0.3);
-    align-self: flex-end;
-    text-align: right;
-  }
-  .transcript-msg.assistant {
-    background: rgba(201,162,39,0.1);
-    border: 1px solid rgba(201,162,39,0.2);
-    align-self: flex-start;
-    text-align: right;
-  }
-  .transcript-msg strong {
-    display: block;
-    font-size: 11px;
-    color: rgba(255,255,255,0.5);
-    margin-bottom: 4px;
-  }
-  .transcript-msg p {
-    color: rgba(255,255,255,0.85);
-    font-size: 13px;
-    line-height: 1.5;
-  }
-
-  /* ── Call controls ── */
-  .call-controls {
-    padding: 16px 20px 24px;
-    border-top: 1px solid rgba(255,255,255,0.06);
-    background: rgba(0,0,0,0.2);
-    flex-shrink: 0;
-  }
-  .error-toast {
-    background: rgba(239,68,68,0.15);
-    border: 1px solid rgba(239,68,68,0.3);
-    color: #ef4444;
-    font-size: 12px;
-    padding: 8px 12px;
-    border-radius: 8px;
-    margin-bottom: 12px;
-    text-align: center;
-  }
-  .control-btns {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 16px;
-  }
-  .control-btn {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    background: rgba(255,255,255,0.06);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 16px;
-    padding: 14px 20px;
-    cursor: pointer;
-    color: rgba(255,255,255,0.7);
-    font-size: 11px;
-    font-weight: 600;
-    transition: all 0.2s;
-    min-width: 70px;
-  }
-  .control-btn:hover:not(:disabled) {
-    background: rgba(255,255,255,0.12);
-    color: white;
-    transform: translateY(-2px);
-  }
-  .control-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-  .control-btn.active {
-    background: rgba(239,68,68,0.2);
-    border-color: rgba(239,68,68,0.4);
-    color: #ef4444;
-  }
-  .btn-icon {
-    width: 28px;
-    height: 28px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .btn-icon svg { width: 22px; height: 22px; }
-  .transcript-btn.active {
-    background: rgba(59,130,246,0.2);
-    border-color: rgba(59,130,246,0.4);
-    color: #3b82f6;
-  }
-  .end-btn {
-    background: rgba(239,68,68,0.15);
-    border-color: rgba(239,68,68,0.3);
-    color: #ef4444;
-  }
-  .end-btn:hover {
-    background: rgba(239,68,68,0.3) !important;
-  }
-
-  /* ── Modals ── */
-  .modal-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.7);
-    backdrop-filter: blur(4px);
-    z-index: 100;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-  }
-
-  /* Limit modal */
-  .limit-modal {
-    background: linear-gradient(135deg, #0f141e, #1a1f2e);
-    border: 1px solid rgba(239,68,68,0.3);
-    border-radius: 24px;
-    padding: 40px 30px;
-    text-align: center;
-    max-width: 320px;
-    width: 100%;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-  }
-  .limit-icon { font-size: 48px; margin-bottom: 16px; }
-  .limit-modal h2 { color: #e8d5a3; font-size: 18px; margin-bottom: 12px; }
-  .limit-modal p  { color: rgba(255,255,255,0.6); font-size: 14px; line-height: 1.5; margin-bottom: 8px; }
-  .limit-reset { color: rgba(255,255,255,0.4) !important; font-size: 12px !important; }
-  .limit-btn {
-    margin-top: 24px;
-    background: linear-gradient(135deg, #1a6b4a, #22c55e);
-    border: none;
-    border-radius: 12px;
-    color: white;
-    font-size: 14px;
-    font-weight: 700;
-    padding: 12px 32px;
-    cursor: pointer;
-    transition: opacity 0.2s;
-  }
-  .limit-btn:hover { opacity: 0.85; }
-
-  /* Settings modal */
-  .settings-modal-content {
-    background: linear-gradient(135deg, #0f141e, #1a1f2e);
-    border: 1px solid rgba(201,162,39,0.2);
-    border-radius: 24px;
-    width: min(480px, 95vw);
-    max-height: 90vh;
-    overflow-y: auto;
-    box-shadow: 0 30px 80px rgba(0,0,0,0.6);
-    scrollbar-width: thin;
-    scrollbar-color: rgba(201,162,39,0.3) transparent;
-  }
-  .settings-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    padding: 24px 24px 16px;
-    border-bottom: 1px solid rgba(255,255,255,0.06);
-    position: sticky;
-    top: 0;
-    background: #0f141e;
-    z-index: 1;
-  }
-  .settings-header h2 { color: #e8d5a3; font-size: 18px; margin-bottom: 4px; }
-  .settings-subtitle  { color: rgba(255,255,255,0.4); font-size: 13px; }
-  .settings-close {
-    background: rgba(255,255,255,0.08);
-    border: none;
-    color: rgba(255,255,255,0.5);
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    cursor: pointer;
-    font-size: 14px;
-    flex-shrink: 0;
-    transition: all 0.2s;
-  }
-  .settings-close:hover { background: rgba(255,255,255,0.15); color: white; }
-
-  .settings-body { padding: 16px 24px; display: flex; flex-direction: column; gap: 12px; }
-
-  .settings-card {
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 16px;
-    padding: 16px;
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-  }
-  .card-icon { font-size: 20px; flex-shrink: 0; margin-top: 2px; }
-  .settings-label {
-    display: block;
-    color: rgba(255,255,255,0.6);
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin-bottom: 10px;
-  }
-  .settings-input {
-    width: 100%;
-    background: rgba(0,0,0,0.3);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 10px;
-    color: white;
-    font-size: 14px;
-    padding: 10px 14px;
-    outline: none;
-    direction: rtl;
-    transition: border-color 0.2s;
-  }
-  .settings-input:focus { border-color: rgba(201,162,39,0.4); }
-  .settings-input::placeholder { color: rgba(255,255,255,0.25); }
-  .settings-hint { color: rgba(255,255,255,0.3); font-size: 11px; margin-top: 6px; }
-
-  .settings-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
-  }
-  .settings-option {
-    background: rgba(0,0,0,0.3);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 10px;
-    padding: 10px 8px;
-    color: rgba(255,255,255,0.6);
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    transition: all 0.2s;
-  }
-  .settings-option:hover { background: rgba(255,255,255,0.06); color: white; }
-  .settings-option.active {
-    background: rgba(201,162,39,0.15);
-    border-color: rgba(201,162,39,0.4);
-    color: #c9a227;
-  }
-  .option-emoji { font-size: 14px; }
-
-  .difficulty-selector {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
-  }
-  .difficulty-option {
-    background: rgba(0,0,0,0.3);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 10px;
-    padding: 10px 6px;
-    color: rgba(255,255,255,0.6);
-    font-size: 11px;
-    font-weight: 600;
-    cursor: pointer;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    transition: all 0.2s;
-  }
-  .difficulty-option:hover { background: rgba(255,255,255,0.06); color: white; }
-  .difficulty-option.active {
-    background: rgba(255,255,255,0.08);
-    border-color: var(--level-color, rgba(201,162,39,0.4));
-    color: var(--level-color, #c9a227);
-  }
-  .difficulty-icon { font-size: 16px; }
-
-  .toggle-options { display: flex; flex-direction: column; gap: 8px; }
-  .toggle-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 10px 12px;
-    background: rgba(0,0,0,0.2);
-    border-radius: 10px;
-    cursor: pointer;
-    gap: 10px;
-  }
-  .toggle-info { display: flex; align-items: center; gap: 10px; flex: 1; }
-  .toggle-icon { font-size: 18px; }
-  .toggle-title { color: rgba(255,255,255,0.8); font-size: 13px; font-weight: 600; }
-  .toggle-desc  { color: rgba(255,255,255,0.35); font-size: 11px; margin-top: 2px; }
-  .toggle-checkbox { display: none; }
-  .toggle-switch {
-    position: relative;
-    width: 40px;
-    height: 22px;
-    background: rgba(255,255,255,0.1);
-    border-radius: 11px;
-    transition: background 0.2s;
-    flex-shrink: 0;
-  }
-  .toggle-switch::after {
+  /* subtle vignette only at bottom and top for UI legibility */
+  .video-bg::after {
     content: '';
     position: absolute;
-    top: 3px;
-    right: 3px;
-    width: 16px;
-    height: 16px;
-    background: white;
-    border-radius: 50%;
-    transition: transform 0.2s;
+    inset: 0;
+    background:
+      linear-gradient(180deg, rgba(0,0,0,0.45) 0%, transparent 18%),
+      linear-gradient(0deg,   rgba(0,0,0,0.55) 0%, transparent 22%);
+    pointer-events: none;
   }
-  .toggle-checkbox:checked + .toggle-switch { background: #1a6b4a; }
-  .toggle-checkbox:checked + .toggle-switch::after { transform: translateX(-18px); }
 
-  .teacher-card { align-items: center; }
-  .teacher-info { display: flex; align-items: center; gap: 10px; }
-  .teacher-mini-pic {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    object-fit: cover;
-    border: 1px solid rgba(201,162,39,0.3);
-  }
-  .teacher-name-text { color: #e8d5a3; font-size: 14px; font-weight: 600; }
-
-  .settings-footer {
-    display: flex;
-    gap: 12px;
-    padding: 16px 24px 24px;
-    border-top: 1px solid rgba(255,255,255,0.06);
-    position: sticky;
-    bottom: 0;
-    background: #0f141e;
-  }
-  .settings-btn-secondary {
-    flex: 1;
-    background: rgba(255,255,255,0.06);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 12px;
-    color: rgba(255,255,255,0.6);
-    font-size: 14px;
-    font-weight: 600;
-    padding: 12px;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  .settings-btn-secondary:hover { background: rgba(255,255,255,0.1); color: white; }
-  .settings-btn-primary {
-    flex: 2;
-    background: linear-gradient(135deg, #1a6b4a, #22c55e);
-    border: none;
-    border-radius: 12px;
-    color: white;
-    font-size: 14px;
-    font-weight: 700;
-    padding: 12px;
-    cursor: pointer;
+  /* ── TOP BAR ── */
+  .top-bar {
+    position: relative;
+    z-index: 10;
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 8px;
-    transition: opacity 0.2s;
+    justify-content: space-between;
+    padding: 14px 22px;
+    background: linear-gradient(180deg, rgba(0,0,0,0.7) 0%, transparent 100%);
+    flex-shrink: 0;
   }
-  .settings-btn-primary:hover { opacity: 0.85; }
+  .tb-left { display: flex; align-items: center; gap: 12px; }
+  .back-btn {
+    background: rgba(255,255,255,0.1);
+    border: none; border-radius: 50%;
+    width: 36px; height: 36px;
+    display: flex; align-items: center; justify-content: center;
+    color: white; cursor: pointer; font-size: 16px;
+    transition: background 0.2s;
+  }
+  .back-btn:hover { background: rgba(255,255,255,0.18); }
+  .caller-info { display: flex; align-items: center; gap: 10px; }
+  .caller-pic {
+    width: 38px; height: 38px; border-radius: 50%;
+    object-fit: cover; border: 2px solid rgba(255,255,255,0.35);
+  }
+  .caller-name { color: white; font-size: 15px; font-weight: 700; }
+  .caller-status {
+    display: flex; align-items: center; gap: 5px;
+    color: rgba(255,255,255,0.6); font-size: 12px; margin-top: 1px;
+  }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; }
+  .status-dot.connected { background: #22c55e; box-shadow: 0 0 6px rgba(34,197,94,0.8); animation: sdPulse 2s infinite; }
+  .status-dot.recording { background: #ef4444; box-shadow: 0 0 6px rgba(239,68,68,0.8); animation: sdPulse 0.8s infinite; }
+  .status-dot.processing { background: #f59e0b; box-shadow: 0 0 6px rgba(245,158,11,0.8); }
+  .status-dot.speaking { background: #3b82f6; box-shadow: 0 0 6px rgba(59,130,246,0.8); }
+  @keyframes sdPulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+  .tb-right { display: flex; align-items: center; gap: 10px; }
+  .timer-chip {
+    background: rgba(0,0,0,0.45);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 20px; padding: 5px 12px;
+    color: rgba(255,255,255,0.85); font-size: 13px;
+    font-variant-numeric: tabular-nums; letter-spacing: 0.06em;
+  }
+  .icon-btn {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 50%; width: 36px; height: 36px;
+    display: flex; align-items: center; justify-content: center;
+    color: rgba(255,255,255,0.75); cursor: pointer;
+    transition: all 0.2s;
+  }
+  .icon-btn:hover { background: rgba(255,255,255,0.2); color: white; }
+  .icon-btn.gear:hover { transform: rotate(60deg); }
+
+  /* ── MAIN CONTENT (middle flex area) ── */
+  .main-area {
+    position: relative;
+    z-index: 10;
+    flex: 1;
+    display: flex;
+    align-items: flex-end;
+    min-height: 0;
+  }
+
+  /* ── CHAT COLUMN ── */
+  .chat-col {
+    width: 380px;
+    max-width: 44vw;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 10px 14px 6px;
+  }
+  .messages-scroll {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+    max-height: 100%;
+    scrollbar-width: none;
+    padding: 4px 2px 6px;
+  }
+  .messages-scroll::-webkit-scrollbar { display: none; }
+
+  @keyframes bubbleIn {
+    from { opacity: 0; transform: translateY(12px) scale(0.94); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  /* ── ROW wrappers ── */
+  .bubble-row { display: flex; align-items: flex-end; gap: 8px; }
+  .bubble-row.user      { flex-direction: row-reverse; }
+  .bubble-row.assistant { flex-direction: row; }
+
+  .bubble-avatar {
+    width: 30px; height: 30px; border-radius: 50%;
+    object-fit: cover; flex-shrink: 0;
+    border: 2px solid rgba(255,255,255,0.18);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    align-self: flex-end;
+    margin-bottom: 2px;
+  }
+
+  /* ── BASE BUBBLE ── */
+  .bubble {
+    max-width: 272px;
+    border-radius: 20px;
+    font-size: 14px;
+    line-height: 1.6;
+    animation: bubbleIn 0.32s cubic-bezier(0.34,1.45,0.64,1) both;
+    word-break: break-word;
+    overflow: hidden;
+  }
+
+  /* ── USER bubble ── */
+  .bubble.user {
+    background: linear-gradient(135deg, #0084ff 0%, #0066d6 100%);
+    color: white;
+    border-bottom-left-radius: 5px;
+    padding: 11px 15px;
+    box-shadow: 0 4px 16px rgba(0,132,255,0.3);
+  }
+
+  /* ── ASSISTANT bubble ── */
+  .bubble.assistant {
+    background: rgba(28,28,32,0.88);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    color: rgba(255,255,255,0.93);
+    border-bottom-right-radius: 5px;
+    border: 1px solid rgba(255,255,255,0.1);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+    padding: 0;
+  }
+  /* inner padding so equation blocks can go edge-to-edge */
+  .bubble.assistant .bubble-text { padding: 12px 15px; }
+
+  /* ── RICH CONTENT inside assistant bubble ── */
+
+  /* inline code */
+  .bubble .inline-code {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 5px;
+    padding: 1px 6px;
+    font-family: 'Fira Mono', 'Courier New', monospace;
+    font-size: 12.5px;
+    color: #7dd3fc;
+  }
+
+  /* block code */
+  .bubble .code-block {
+    background: rgba(0,0,0,0.55);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    margin: 8px 0;
+    overflow: hidden;
+  }
+  .bubble .code-lang {
+    background: rgba(255,255,255,0.06);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    padding: 4px 12px;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+    color: rgba(255,255,255,0.35); text-transform: uppercase;
+  }
+  .bubble .code-content {
+    padding: 10px 12px;
+    font-family: 'Fira Mono', 'Courier New', monospace;
+    font-size: 12.5px; line-height: 1.6;
+    color: #e2e8f0;
+    white-space: pre-wrap; overflow-x: auto;
+  }
+
+  /* bold */
+  .bubble .bold-text { font-weight: 800; color: white; }
+
+  /* block equation */
+  .bubble .eq-block {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin: 8px 0;
+    text-align: center;
+    overflow-x: auto;
+    direction: ltr;
+  }
+  .bubble .eq-block .katex { font-size: 1.1em; }
+
+  /* inline equation */
+  .bubble .eq-inline {
+    background: rgba(255,255,255,0.08);
+    border-radius: 4px;
+    padding: 0 4px;
+    direction: ltr;
+    display: inline-block;
+    vertical-align: middle;
+  }
+
+  /* bullet / numbered list */
+  .bubble .msg-list { padding-right: 4px; padding-top: 2px; display: flex; flex-direction: column; gap: 4px; }
+  .bubble .msg-list-item { display: flex; gap: 8px; align-items: flex-start; }
+  .bubble .msg-list-bullet { color: #0084ff; font-weight: 800; flex-shrink: 0; margin-top: 1px; }
+  .bubble .msg-list-num   { color: #60a5fa; font-weight: 800; flex-shrink: 0; min-width: 16px; }
+
+  /* separator line between sections */
+  .bubble .msg-divider { height: 1px; background: rgba(255,255,255,0.08); margin: 8px 0; }
+
+  /* ── LIVE RECORDING BUBBLE ── */
+  .live-bubble-wrap { display: flex; flex-direction: row-reverse; align-items: flex-end; gap: 8px; }
+  .live-bubble {
+    max-width: 272px;
+    background: rgba(0,100,200,0.3);
+    backdrop-filter: blur(14px);
+    border: 1.5px solid rgba(0,132,255,0.45);
+    border-radius: 20px; border-bottom-left-radius: 5px;
+    padding: 11px 15px;
+    color: rgba(255,255,255,0.88);
+    font-size: 14px; line-height: 1.6;
+    animation: bubbleIn 0.25s ease both;
+    position: relative;
+    box-shadow: 0 4px 16px rgba(0,100,200,0.25);
+  }
+  .live-badge {
+    position: absolute; top: -9px; right: 12px;
+    background: #0084ff; border-radius: 10px;
+    padding: 2px 8px; font-size: 9px; font-weight: 800;
+    color: white; letter-spacing: 0.08em;
+    box-shadow: 0 2px 8px rgba(0,132,255,0.5);
+  }
+  .live-pulse { display: flex; align-items: center; gap: 5px; color: rgba(255,255,255,0.55); font-size: 12px; margin-top: 4px; }
+  .lp-dot { width: 5px; height: 5px; border-radius: 50%; background: #0084ff; animation: liveDot 1s ease-in-out infinite; }
+  .lp-dot:nth-child(2){animation-delay:0.15s;} .lp-dot:nth-child(3){animation-delay:0.3s;}
+  @keyframes liveDot { 0%,100%{transform:scale(0.5);opacity:0.4;} 50%{transform:scale(1.2);opacity:1;} }
+
+  /* ── THINKING DOTS ── */
+  .thinking-bubble {
+    background: rgba(28,28,32,0.85);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 20px; border-bottom-right-radius: 5px;
+    padding: 14px 18px;
+    display: flex; align-items: center; gap: 5px;
+    animation: bubbleIn 0.25s ease both;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  }
+  .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: rgba(255,255,255,0.5);
+    animation: dotBounce 1.3s ease-in-out infinite;
+  }
+  .dot:nth-child(2) { animation-delay: 0.18s; }
+  .dot:nth-child(3) { animation-delay: 0.36s; }
+  @keyframes dotBounce {
+    0%,80%,100% { transform: translateY(0); opacity: 0.35; }
+    40%          { transform: translateY(-7px); opacity: 1; }
+  }
+
+  /* ── BOTTOM CONTROLS ── */
+  .bottom-bar {
+    position: relative; z-index: 10; flex-shrink: 0;
+    padding: 16px 22px 28px;
+    background: linear-gradient(0deg, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.5) 70%, transparent 100%);
+    display: flex; flex-direction: column; align-items: center; gap: 14px;
+  }
+
+  /* error */
+  .err { background: rgba(239,68,68,0.2); border: 1px solid rgba(239,68,68,0.4); color: #fca5a5; font-size: 12px; padding: 8px 18px; border-radius: 20px; text-align: center; }
+
+  /* slots */
+  .slots-row { display: flex; align-items: center; gap: 8px; }
+  .slot { width: 32px; height: 4px; border-radius: 2px; transition: all 0.3s; }
+  .slot.used { background: #0084ff; box-shadow: 0 0 6px rgba(0,132,255,0.5); }
+  .slot.empty { background: rgba(255,255,255,0.15); }
+  .slot-label { color: rgba(255,255,255,0.45); font-size: 11px; }
+
+  /* control buttons row */
+  .ctrl-row { display: flex; align-items: center; justify-content: center; gap: 18px; }
+
+  /* secondary buttons */
+  .sec-btn {
+    width: 48px; height: 48px; border-radius: 50%;
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.16);
+    display: flex; align-items: center; justify-content: center;
+    color: white; cursor: pointer; font-size: 18px;
+    transition: all 0.2s cubic-bezier(0.34,1.56,0.64,1);
+    backdrop-filter: blur(8px);
+  }
+  .sec-btn:hover { background: rgba(255,255,255,0.22); transform: scale(1.06); }
+  .sec-btn.danger { background: rgba(239,68,68,0.25); border-color: rgba(239,68,68,0.4); }
+  .sec-btn.danger:hover { background: rgba(239,68,68,0.45); }
+  .sec-btn.active-vol { background: rgba(234,179,8,0.2); border-color: rgba(234,179,8,0.4); }
+
+  /* MAIN MIC BUTTON */
+  .mic-btn {
+    width: 68px; height: 68px; border-radius: 50%;
+    background: #0084ff;
+    border: none;
+    display: flex; align-items: center; justify-content: center;
+    color: white; cursor: pointer; font-size: 26px;
+    transition: all 0.25s cubic-bezier(0.34,1.56,0.64,1);
+    box-shadow: 0 0 0 0 rgba(0,132,255,0.4), 0 8px 24px rgba(0,132,255,0.35);
+  }
+  .mic-btn:hover:not(:disabled) { transform: scale(1.07); box-shadow: 0 0 0 6px rgba(0,132,255,0.15), 0 12px 30px rgba(0,132,255,0.4); }
+  .mic-btn.recording {
+    background: #ef4444;
+    box-shadow: 0 0 0 0 rgba(239,68,68,0.4), 0 8px 24px rgba(239,68,68,0.35);
+    animation: micPulse 1.4s ease-in-out infinite;
+  }
+  @keyframes micPulse {
+    0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.35), 0 8px 24px rgba(239,68,68,0.3); }
+    50%      { box-shadow: 0 0 0 12px rgba(239,68,68,0.1), 0 8px 24px rgba(239,68,68,0.3); }
+  }
+  .mic-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; }
+
+  /* ── SETTINGS MODAL ── */
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(8px); z-index: 100;
+    display: flex; align-items: flex-end; justify-content: center;
+    animation: fadeIn 0.2s ease both;
+    padding: 0;
+  }
+  @keyframes fadeIn { from{opacity:0;} to{opacity:1;} }
+  .sheet {
+    background: #1c1c1e;
+    border-radius: 24px 24px 0 0;
+    width: 100%; max-width: 600px;
+    max-height: 88vh; overflow-y: auto;
+    padding-bottom: env(safe-area-inset-bottom, 20px);
+    animation: sheetUp 0.35s cubic-bezier(0.34,1.4,0.64,1) both;
+    scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.1) transparent;
+  }
+  @keyframes sheetUp { from{transform:translateY(100%);opacity:0.5;} to{transform:none;opacity:1;} }
+  .sheet-handle { width: 36px; height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px; margin: 14px auto 4px; }
+  .sheet-header { padding: 10px 22px 16px; border-bottom: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: space-between; }
+  .sheet-header h3 { color: white; font-size: 17px; font-weight: 700; }
+  .sheet-close { background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.6); width: 30px; height: 30px; border-radius: 50%; cursor: pointer; font-size: 14px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
+  .sheet-close:hover { background: rgba(255,255,255,0.18); color: white; }
+  .sheet-body { padding: 16px 22px; display: flex; flex-direction: column; gap: 20px; }
+
+  .setting-section h4 { color: rgba(255,255,255,0.45); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 10px; }
+  .setting-input { width: 100%; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; color: white; font-size: 14px; font-family: 'Tajawal',sans-serif; padding: 11px 14px; outline: none; direction: rtl; transition: border-color 0.2s; }
+  .setting-input:focus { border-color: rgba(0,132,255,0.5); box-shadow: 0 0 0 3px rgba(0,132,255,0.1); }
+  .setting-input::placeholder { color: rgba(255,255,255,0.2); }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; padding: 7px 16px; color: rgba(255,255,255,0.55); font-size: 13px; font-family: 'Tajawal',sans-serif; cursor: pointer; transition: all 0.18s; }
+  .chip:hover { background: rgba(255,255,255,0.12); color: white; }
+  .chip.on { background: rgba(0,132,255,0.2); border-color: rgba(0,132,255,0.5); color: #60a5fa; }
+
+  .toggles { display: flex; flex-direction: column; gap: 2px; }
+  .tgl { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.06); cursor: pointer; gap: 12px; }
+  .tgl:last-child { border-bottom: none; }
+  .tgl-left { display: flex; align-items: center; gap: 10px; flex: 1; }
+  .tgl-ico { font-size: 18px; }
+  .tgl-label { color: rgba(255,255,255,0.8); font-size: 14px; }
+  .tgl-desc  { color: rgba(255,255,255,0.3); font-size: 11px; margin-top: 1px; }
+  input.tgl-chk { display: none; }
+  .tgl-sw { position: relative; width: 44px; height: 26px; background: rgba(255,255,255,0.12); border-radius: 13px; transition: all 0.28s; flex-shrink: 0; }
+  .tgl-sw::after { content:''; position:absolute; top:3px; right:3px; width:20px; height:20px; border-radius:50%; background:white; transition:all 0.28s cubic-bezier(0.34,1.56,0.64,1); opacity:0.6; }
+  input.tgl-chk:checked + .tgl-sw { background: #0084ff; }
+  input.tgl-chk:checked + .tgl-sw::after { transform: translateX(-18px); opacity: 1; }
+
+  .sheet-footer { padding: 16px 22px 22px; display: flex; gap: 12px; border-top: 1px solid rgba(255,255,255,0.08); }
+  .sheet-reset { flex: 1; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; color: rgba(255,255,255,0.55); font-size: 14px; font-family: 'Tajawal',sans-serif; padding: 13px; cursor: pointer; transition: all 0.2s; }
+  .sheet-reset:hover { background: rgba(255,255,255,0.12); color: white; }
+  .sheet-save { flex: 2; background: #0084ff; border: none; border-radius: 12px; color: white; font-size: 14px; font-weight: 700; font-family: 'Tajawal',sans-serif; padding: 13px; cursor: pointer; transition: all 0.2s; }
+  .sheet-save:hover { background: #0073e0; transform: translateY(-1px); }
+
+  /* ── LIMIT MODAL ── */
+  .limit-center {
+    display: flex; align-items: center; justify-content: center;
+  }
+  .limit-card { background: #1c1c1e; border-radius: 20px; padding: 36px 28px; text-align: center; max-width: 320px; width: 90%; animation: popIn 0.35s cubic-bezier(0.34,1.56,0.64,1) both; }
+  @keyframes popIn { from{opacity:0;transform:scale(0.88);} to{opacity:1;transform:none;} }
+  .limit-card .emoji { font-size: 50px; display: block; margin-bottom: 16px; }
+  .limit-card h3 { color: white; font-size: 18px; font-weight: 700; margin-bottom: 10px; }
+  .limit-card p  { color: rgba(255,255,255,0.5); font-size: 13px; line-height: 1.6; }
+  .limit-card .note { color: rgba(255,255,255,0.25); font-size: 11px; margin-top: 6px; }
+  .limit-ok { margin-top: 22px; background: #0084ff; border: none; border-radius: 12px; color: white; font-size: 14px; font-weight: 700; font-family: 'Tajawal',sans-serif; padding: 12px 32px; cursor: pointer; transition: all 0.2s; }
+  .limit-ok:hover { background: #0073e0; transform: translateY(-1px); }
 `;
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API;
 
-const DEFAULT_SETTINGS = {
-  topic: "",
-  speakingStyle: "conversational",
-  responseLength: "short",
-  difficultyLevel: "medium",
-  includeExamples: true,
-  useAnalogies: false,
-  encouragement: true,
-  formalLevel: "casual",
-};
-
-function formatDuration(seconds) {
-  const m = Math.floor(seconds / 60).toString().padStart(2, "0");
-  const s = (seconds % 60).toString().padStart(2, "0");
-  return `${m}:${s}`;
+// ── Load KaTeX from CDN once ─────────────────────────────────────────────────
+let katexLoaded = false;
+let katexLoading = null;
+function loadKatex() {
+  if (katexLoaded) return Promise.resolve();
+  if (katexLoading) return katexLoading;
+  katexLoading = new Promise(resolve => {
+    // CSS
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = "https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css";
+    document.head.appendChild(link);
+    // JS
+    const script = document.createElement("script");
+    script.src = "https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js";
+    script.onload = () => { katexLoaded = true; resolve(); };
+    document.head.appendChild(script);
+  });
+  return katexLoading;
 }
 
-function buildSystemPrompt(settings) {
-  let prompt = TEACHER.prompt;
-  if (settings.topic) prompt += `\n\nموضوع المحادثة: ${settings.topic}`;
-
-  const lengths = { veryShort: "أجب في جملة واحدة فقط", short: "أجب بإجابات قصيرة ومباشرة (2-3 جمل)", medium: "أجب بشكل متوسط الطول مع بعض التفاصيل", detailed: "قدم إجابة مفصلة وشاملة" };
-  const diffs   = { beginner: "استخدم لغة بسيطة جداً ومناسبة للمبتدئين", easy: "اشرح بطريقة سهلة وواضحة", medium: "استخدم مستوى متوسط من التعقيد", advanced: "يمكنك استخدام مصطلحات متقدمة ومفاهيم معقدة" };
-  const styles  = { conversational: "تحدث بأسلوب ودي ومحادثة طبيعية", professional: "استخدم أسلوباً مهنياً ورسمياً", enthusiastic: "كن متحمساً ومشجعاً في إجاباتك", socratic: "استخدم طريقة سقراط في التعليم بطرح أسئلة توجيهية" };
-
-  prompt += `\n\n${lengths[settings.responseLength]}`;
-  prompt += `\n${diffs[settings.difficultyLevel]}`;
-  prompt += `\n${styles[settings.speakingStyle]}`;
-  if (settings.includeExamples) prompt += "\nقدم أمثلة عملية عندما يكون ذلك مناسباً";
-  if (settings.useAnalogies)    prompt += "\nاستخدم التشبيهات والاستعارات لتوضيح المفاهيم";
-  if (settings.encouragement)   prompt += "\nشجع الطالب وامدحه عند الإجابة الصحيحة";
-  return prompt;
+function renderKatex(tex, display) {
+  try {
+    if (window.katex) {
+      return window.katex.renderToString(tex, { displayMode: display, throwOnError: false });
+    }
+  } catch {}
+  return tex;
 }
 
-// ─── Simple in-memory rate limiter (resets on page reload) ───────────────────
-const DAILY_LIMIT = 5;
-const rateLimitStore = { count: 0, date: new Date().toDateString() };
-function getRemainingLocal() {
-  if (rateLimitStore.date !== new Date().toDateString()) {
-    rateLimitStore.count = 0;
-    rateLimitStore.date  = new Date().toDateString();
+// ── Rich Message Renderer ────────────────────────────────────────────────────
+function RichMessage({ text, isUser }) {
+  const [katexReady, setKatexReady] = useState(katexLoaded);
+  useEffect(() => { loadKatex().then(() => setKatexReady(true)); }, []);
+
+  if (isUser) return <span>{text}</span>;
+
+  // Parse text into segments: block-eq, inline-eq, code-block, bold, list, plain
+  const segments = [];
+  let remaining = text;
+
+  while (remaining.length > 0) {
+    // 1. Block equation $$...$$
+    const blockEqMatch = remaining.match(/^\$\$([\s\S]+?)\$\$/);
+    if (blockEqMatch) {
+      segments.push({ type: "block-eq", content: blockEqMatch[1] });
+      remaining = remaining.slice(blockEqMatch[0].length);
+      continue;
+    }
+    // 2. Code block ```...```
+    const codeMatch = remaining.match(/^```(\w*)\n?([\s\S]*?)```/);
+    if (codeMatch) {
+      segments.push({ type: "code", lang: codeMatch[1] || "code", content: codeMatch[2] });
+      remaining = remaining.slice(codeMatch[0].length);
+      continue;
+    }
+    // 3. Line-by-line: process current line
+    const nlIdx = remaining.indexOf("\n");
+    const line = nlIdx === -1 ? remaining : remaining.slice(0, nlIdx + 1);
+    remaining = nlIdx === -1 ? "" : remaining.slice(nlIdx + 1);
+
+    // bullet list
+    const bulletMatch = line.match(/^[\-\*•]\s+(.+)/);
+    if (bulletMatch) { segments.push({ type: "bullet", content: bulletMatch[1].trim() }); continue; }
+
+    // numbered list
+    const numMatch = line.match(/^(\d+)[.)]\s+(.+)/);
+    if (numMatch) { segments.push({ type: "numbered", num: numMatch[1], content: numMatch[2].trim() }); continue; }
+
+    // plain line (may contain inline $...$ and **bold** and `code`)
+    if (line.trim()) segments.push({ type: "line", content: line.replace(/\n$/, "") });
+    else if (segments.length > 0) segments.push({ type: "spacer" });
   }
-  return DAILY_LIMIT - rateLimitStore.count;
+
+  // Inline parser: handles $...$, **bold**, `code`
+  function parseInline(str) {
+    const parts = [];
+    let s = str;
+    let key = 0;
+    while (s.length > 0) {
+      // inline eq
+      const ieq = s.match(/^\$([^$\n]+?)\$/);
+      if (ieq) {
+        parts.push(
+          <span key={key++} className="eq-inline" dangerouslySetInnerHTML={{
+            __html: katexReady ? renderKatex(ieq[1], false) : ieq[1]
+          }}/>
+        );
+        s = s.slice(ieq[0].length); continue;
+      }
+      // bold
+      const bold = s.match(/^\*\*(.+?)\*\*/);
+      if (bold) { parts.push(<span key={key++} className="bold-text">{bold[1]}</span>); s = s.slice(bold[0].length); continue; }
+      // inline code
+      const ic = s.match(/^`([^`]+)`/);
+      if (ic) { parts.push(<code key={key++} className="inline-code">{ic[1]}</code>); s = s.slice(ic[0].length); continue; }
+      // plain char
+      const nextSpecial = s.search(/\$|\*\*|`/);
+      if (nextSpecial === -1) { parts.push(s); break; }
+      parts.push(s.slice(0, nextSpecial));
+      s = s.slice(nextSpecial);
+    }
+    return parts;
+  }
+
+  // Group bullets/numbered into lists
+  const grouped = [];
+  let i = 0;
+  while (i < segments.length) {
+    const seg = segments[i];
+    if (seg.type === "bullet") {
+      const items = [];
+      while (i < segments.length && segments[i].type === "bullet") { items.push(segments[i].content); i++; }
+      grouped.push({ type: "bullet-list", items });
+    } else if (seg.type === "numbered") {
+      const items = [];
+      while (i < segments.length && segments[i].type === "numbered") { items.push({ num: segments[i].num, content: segments[i].content }); i++; }
+      grouped.push({ type: "numbered-list", items });
+    } else {
+      grouped.push(seg); i++;
+    }
+  }
+
+  return (
+    <div className="bubble-text">
+      {grouped.map((seg, idx) => {
+        if (seg.type === "block-eq") return (
+          <div key={idx} className="eq-block" dangerouslySetInnerHTML={{
+            __html: katexReady ? renderKatex(seg.content, true) : seg.content
+          }}/>
+        );
+        if (seg.type === "code") return (
+          <div key={idx} className="code-block">
+            {seg.lang && <div className="code-lang">{seg.lang}</div>}
+            <pre className="code-content">{seg.content}</pre>
+          </div>
+        );
+        if (seg.type === "bullet-list") return (
+          <div key={idx} className="msg-list">
+            {seg.items.map((item, j) => (
+              <div key={j} className="msg-list-item">
+                <span className="msg-list-bullet">•</span>
+                <span>{parseInline(item)}</span>
+              </div>
+            ))}
+          </div>
+        );
+        if (seg.type === "numbered-list") return (
+          <div key={idx} className="msg-list">
+            {seg.items.map((item, j) => (
+              <div key={j} className="msg-list-item">
+                <span className="msg-list-num">{item.num}.</span>
+                <span>{parseInline(item.content)}</span>
+              </div>
+            ))}
+          </div>
+        );
+        if (seg.type === "spacer") return <div key={idx} style={{height: 6}}/>;
+        if (seg.type === "line")   return <div key={idx}>{parseInline(seg.content)}</div>;
+        return null;
+      })}
+    </div>
+  );
 }
-function incrementLocal() { rateLimitStore.count++; }
 
-// ─── App Component ────────────────────────────────────────────────────────────
 export default function App() {
-  const [isRecording, setIsRecording]   = useState(false);
+  const [isRecording,  setIsRecording]  = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isSpeaking, setIsSpeaking]     = useState(false);
-  const [showTranscript, setShowTranscript] = useState(false);
-  const [transcript, setTranscript]     = useState([]);
-  const [error, setError]               = useState("");
+  const [isSpeaking,   setIsSpeaking]   = useState(false);
+  const [transcript,   setTranscript]   = useState([]);
+  const [liveText,     setLiveText]     = useState("");   // text user is currently saying
+  const [error,        setError]        = useState("");
   const [callDuration, setCallDuration] = useState(0);
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [voiceInteractionsRemaining, setVoiceInteractionsRemaining] = useState(getRemainingLocal);
-  const [showLimitModal, setShowLimitModal] = useState(false);
-  const [settings, setSettings]         = useState(DEFAULT_SETTINGS);
-  const [currentVideoState, setCurrentVideoState] = useState("idle");
+  const [showSettings, setShowSettings] = useState(false);
+  const [remaining,    setRemaining]    = useState(getRemaining);
+  const [showLimit,    setShowLimit]    = useState(false);
+  const [settings,     setSettings]     = useState(DEFAULT_SETTINGS);
+  const [videoState,   setVideoState]   = useState("idle");
+  const [volOn,        setVolOn]        = useState(true);
 
-  const mediaRecorderRef = useRef(null);
-  const audioChunksRef   = useRef([]);
-  const audioContextRef  = useRef(null);
-  const audioSourceRef   = useRef(null);
-  const transcriptEndRef = useRef(null);
+  const mediaRecRef = useRef(null);
+  const chunksRef   = useRef([]);
+  const audioCtxRef = useRef(null);
+  const audioSrcRef = useRef(null);
+  const scrollRef   = useRef(null);
 
-  // Inject CSS
+  // inject CSS
   useEffect(() => {
-    const el = document.createElement("style");
-    el.textContent = STYLES;
-    document.head.appendChild(el);
-    return () => el.remove();
+    const el = document.createElement("style"); el.textContent = STYLES;
+    document.head.appendChild(el); return () => el.remove();
   }, []);
 
-  // Call timer
+  // timer
   useEffect(() => {
     const t = setInterval(() => setCallDuration(p => p + 1), 1000);
     return () => clearInterval(t);
   }, []);
 
-  // Scroll transcript
+  // auto-scroll
   useEffect(() => {
-    if (showTranscript) transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [transcript, showTranscript]);
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [transcript, liveText, isProcessing]);
 
-  // Cleanup audio
+  // cleanup
   useEffect(() => {
-    return () => {
-      try { audioSourceRef.current?.stop(); } catch {}
-      audioContextRef.current?.close();
-    };
+    return () => { try { audioSrcRef.current?.stop(); } catch{} audioCtxRef.current?.close(); };
   }, []);
 
-  // ── Recording ──────────────────────────────────────────────────────────────
   const startRecording = async () => {
-    const remaining = getRemainingLocal();
-    if (remaining <= 0) { setShowLimitModal(true); return; }
-
+    if (getRemaining() <= 0) { setShowLimit(true); return; }
     try {
       setError("");
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorderRef.current = new MediaRecorder(stream);
-      audioChunksRef.current   = [];
-
-      mediaRecorderRef.current.ondataavailable = e => audioChunksRef.current.push(e.data);
-      mediaRecorderRef.current.onstop = async () => {
-        const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+      mediaRecRef.current = new MediaRecorder(stream);
+      chunksRef.current   = [];
+      mediaRecRef.current.ondataavailable = e => chunksRef.current.push(e.data);
+      mediaRecRef.current.onstop = async () => {
+        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
         await processAudio(blob);
         stream.getTracks().forEach(t => t.stop());
       };
-
-      mediaRecorderRef.current.start();
-      setIsRecording(true);
-      setCurrentVideoState("recording");
-
-      // Decrement
-      incrementLocal();
-      setVoiceInteractionsRemaining(getRemainingLocal());
-    } catch (err) {
-      console.error(err);
-      setError("لا يمكن الوصول إلى الميكروفون");
-    }
+      mediaRecRef.current.start();
+      setIsRecording(true); setVideoState("recording");
+      // show live recording indicator
+      setLiveText("🎤 جاري الاستماع...");
+      useLimit(); setRemaining(getRemaining());
+    } catch(err) { setError("لا يمكن الوصول إلى الميكروفون"); }
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-      setIsProcessing(true);
-      setCurrentVideoState("processing");
+    if (mediaRecRef.current && isRecording) {
+      mediaRecRef.current.stop();
+      setIsRecording(false); setIsProcessing(true); setVideoState("processing");
+      setLiveText("");
     }
   };
 
-  // ── Audio processing ───────────────────────────────────────────────────────
-  const processAudio = async (audioBlob) => {
+  const processAudio = async (blob) => {
     try {
       // 1. Transcribe
       const form = new FormData();
-      form.append("file", audioBlob, "audio.webm");
+      form.append("file", blob, "audio.webm");
       form.append("model", "gpt-4o-mini-transcribe");
       form.append("language", "ar");
-
-      const transRes = await fetch("https://api.openai.com/v1/audio/transcriptions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${OPENAI_API_KEY}` },
-        body: form,
+      const tr = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+        method: "POST", headers: { Authorization: `Bearer ${OPENAI_API_KEY}` }, body: form,
       });
-      if (!transRes.ok) throw new Error("فشل تحويل الصوت إلى نص");
-      const { text: userText } = await transRes.json();
+      if (!tr.ok) throw new Error("فشل تحويل الصوت إلى نص");
+      const { text: userText } = await tr.json();
 
-      const nextTranscript = [...transcript, { role: "user", text: userText }];
-      setTranscript(nextTranscript);
+      // show transcribed text immediately
+      const next = [...transcript, { role: "user", text: userText }];
+      setTranscript(next);
 
       // 2. Chat
-      const chatRes = await fetch("https://api.openai.com/v1/chat/completions", {
+      const cr = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "gpt-4o",
-          max_tokens: 100,
-          temperature: 0.5,
-          messages: [
-            { role: "system", content: buildSystemPrompt(settings) },
-            ...nextTranscript.map(t => ({ role: t.role, content: t.text })),
-          ],
+          model: "gpt-4o", max_tokens: 100, temperature: 0.5,
+          messages: [{ role: "system", content: buildSystemPrompt(settings) }, ...next.map(m => ({ role: m.role, content: m.text }))],
         }),
       });
-      if (!chatRes.ok) throw new Error("فشل الحصول على رد");
-      const chatData = await chatRes.json();
-      const aiText   = chatData.choices[0].message.content;
-      setTranscript(prev => [...prev, { role: "assistant", text: aiText }]);
+      if (!cr.ok) throw new Error("فشل الحصول على رد");
+      const aiText = (await cr.json()).choices[0].message.content;
+      setTranscript(p => [...p, { role: "assistant", text: aiText }]);
 
       // 3. TTS
-      const ttsRes = await fetch("https://api.openai.com/v1/audio/speech", {
+      const tts = await fetch("https://api.openai.com/v1/audio/speech", {
         method: "POST",
         headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({ model: "gpt-4o-mini-tts", voice: "onyx", input: aiText, response_format: "wav" }),
       });
-      if (!ttsRes.ok) throw new Error("فشل تحويل النص إلى صوت");
-
-      const audioData = await ttsRes.arrayBuffer();
-      playAudio(audioData);
-    } catch (err) {
-      console.error(err);
+      if (!tts.ok) throw new Error("فشل تحويل النص إلى صوت");
+      playAudio(await tts.arrayBuffer());
+    } catch(err) {
       setError(err.message || "حدث خطأ أثناء المعالجة");
-      setIsProcessing(false);
-      setCurrentVideoState("idle");
+      setIsProcessing(false); setVideoState("idle");
     }
   };
 
-  const playAudio = (arrayBuffer) => {
+  const playAudio = (buf) => {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    audioContextRef.current = ctx;
-    ctx.decodeAudioData(arrayBuffer, buffer => {
+    audioCtxRef.current = ctx;
+    ctx.decodeAudioData(buf, buffer => {
       const src = ctx.createBufferSource();
-      src.buffer = buffer;
-      src.connect(ctx.destination);
-      audioSourceRef.current = src;
-
-      setIsSpeaking(true);
-      setIsProcessing(false);
-      setCurrentVideoState("speaking");
-
-      src.onended = () => { setIsSpeaking(false); setCurrentVideoState("idle"); };
+      src.buffer = buffer; src.connect(ctx.destination); audioSrcRef.current = src;
+      setIsSpeaking(true); setIsProcessing(false); setVideoState("speaking");
+      src.onended = () => { setIsSpeaking(false); setVideoState("idle"); };
       src.start(0);
     });
   };
 
-  const getVideoUrl = (state) => TEACHER.videos?.[state] ?? null;
+  const statusText = isSpeaking ? "يتحدث..." : isProcessing ? "يفكر..." : isRecording ? "يستمع..." : "متصل";
+  const dotClass   = isSpeaking ? "speaking" : isProcessing ? "processing" : isRecording ? "recording" : "connected";
+  const usedSlots  = DAILY_LIMIT - remaining;
 
-  // ── Status label ───────────────────────────────────────────────────────────
-  const statusClass = isSpeaking ? "speaking" : isProcessing ? "processing" : isRecording ? "recording" : "connected";
-  const statusLabel = isSpeaking ? "🔊 يتحدث"  : isProcessing ? "⏳ يفكر"    : isRecording ? "🎤 يستمع"   : "✓ متصل";
-
-  // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div className="video-call-container">
-      {/* Background */}
-      <div className="background-orbs">
-        <div className="orb orb-1" />
-        <div className="orb orb-2" />
-        <div className="orb orb-3" />
+    <div className="shell">
+      {/* ── VIDEO BACKGROUND ── */}
+      <div className="video-bg">
+        {videoState === "idle"
+          ? <img src={TEACHER.pic} alt={TEACHER.name}/>
+          : <video key={videoState} src={TEACHER.videos[videoState]} loop muted playsInline autoPlay/>
+        }
       </div>
 
-      {/* Main card */}
-      <div className="video-wrapper">
-
-        {/* Top bar */}
-        <div className="call-top-bar">
-          <div className="call-info">
-            <div className="avatar-wrapper">
-              <img src={TEACHER.pic} alt={TEACHER.name} className="call-avatar" />
-              <div className="online-indicator" />
-            </div>
+      {/* ── TOP BAR ── */}
+      <div className="top-bar">
+        <div className="tb-left">
+          <button className="back-btn" onClick={() => window.history.back()}>←</button>
+          <div className="caller-info">
+            <img src={TEACHER.pic} alt={TEACHER.name} className="caller-pic"/>
             <div>
-              <h3>{TEACHER.name}</h3>
-              <span className="call-time">{formatDuration(callDuration)}</span>
+              <div className="caller-name">{TEACHER.name}</div>
+              <div className="caller-status">
+                <div className={`status-dot ${dotClass}`}/>
+                <span>{statusText}</span>
+              </div>
             </div>
-          </div>
-
-          <div className="top-bar-right">
-            <div className="message-counter" title={`${voiceInteractionsRemaining} تفاعلات صوتية متبقية اليوم`}>
-              <span className="counter-icon">🎤</span>
-              <span className="counter-number">{voiceInteractionsRemaining}/{DAILY_LIMIT}</span>
-            </div>
-
-            <button className="settings-btn" onClick={() => setShowSettingsModal(true)} title="إعدادات المحادثة">
-              <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
-                <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>
-              </svg>
-            </button>
-
-            <div className={`status-badge ${statusClass}`}>{statusLabel}</div>
           </div>
         </div>
-
-        {/* Video */}
-        <div className="video-main">
-          <div className="video-frame">
-            {currentVideoState === "idle" ? (
-              <img src={TEACHER.pic} alt={TEACHER.name} className="avatar-video" />
-            ) : (
-              <video
-                key={currentVideoState}
-                className="avatar-video"
-                src={getVideoUrl(currentVideoState)}
-                loop muted playsInline autoPlay
-              />
-            )}
-            <div className="video-shimmer" />
-          </div>
-        </div>
-
-        {/* Transcript overlay */}
-        {showTranscript && (
-          <div className="transcript-sidebar">
-            <div className="transcript-header">
-              <h4>📝 نص المحادثة</h4>
-              <button className="close-transcript" onClick={() => setShowTranscript(false)}>✕</button>
-            </div>
-            <div className="transcript-messages">
-              {transcript.map((msg, i) => (
-                <div key={i} className={`transcript-msg ${msg.role}`}>
-                  <strong>{msg.role === "user" ? "أنت" : TEACHER.name}</strong>
-                  <p>{msg.text}</p>
-                </div>
-              ))}
-              <div ref={transcriptEndRef} />
-            </div>
-          </div>
-        )}
-
-        {/* Controls */}
-        <div className="call-controls">
-          {error && <div className="error-toast">{error}</div>}
-          <div className="control-btns">
-
-            {/* Mic button */}
-            <button
-              className={`control-btn mic-btn ${isRecording ? "active" : ""}`}
-              onClick={isRecording ? stopRecording : startRecording}
-              disabled={isProcessing || voiceInteractionsRemaining <= 0}
-              title={voiceInteractionsRemaining <= 0 ? "لقد وصلت إلى الحد اليومي" : isRecording ? "إيقاف التسجيل" : "ابدأ التحدث"}
-            >
-              <div className="btn-icon">
-                {isRecording ? (
-                  <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
-                ) : (
-                  <svg viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-                    <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-                  </svg>
-                )}
-              </div>
-              <span>{isRecording ? "إيقاف" : "تحدث"}</span>
-            </button>
-
-            {/* Transcript toggle */}
-            <button
-              className={`control-btn transcript-btn ${showTranscript ? "active" : ""}`}
-              onClick={() => setShowTranscript(p => !p)}
-              title="عرض نص المحادثة"
-            >
-              <div className="btn-icon">
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/>
-                </svg>
-              </div>
-              <span>نص</span>
-            </button>
-
-            {/* End call */}
-            <button className="control-btn end-btn" onClick={() => window.history.back()} title="إنهاء المكالمة">
-              <div className="btn-icon">
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08c-.18-.17-.29-.42-.29-.7 0-.28.11-.53.29-.71C3.34 8.78 7.46 7 12 7s8.66 1.78 11.71 4.67c.18.18.29.43.29.71 0 .28-.11.53-.29.71l-2.48 2.48c-.18.18-.43.29-.71.29-.27 0-.52-.11-.7-.28-.79-.74-1.69-1.36-2.67-1.85-.33-.16-.56-.5-.56-.9v-3.1C15.15 9.25 13.6 9 12 9z"/>
-                </svg>
-              </div>
-              <span>إنهاء</span>
-            </button>
-
-          </div>
+        <div className="tb-right">
+          <div className="timer-chip">{formatTime(callDuration)}</div>
+          <button className="icon-btn gear" onClick={() => setShowSettings(true)}>
+            <GearIcon/>
+          </button>
         </div>
       </div>
 
-      {/* ── Limit modal ── */}
-      {showLimitModal && (
-        <div className="modal-overlay" onClick={() => setShowLimitModal(false)}>
-          <div className="limit-modal" onClick={e => e.stopPropagation()}>
-            <div className="limit-icon">🚫</div>
-            <h2>لقد وصلت إلى الحد اليومي</h2>
-            <p>لقد استخدمت جميع تفاعلاتك الصوتية الـ {DAILY_LIMIT} لهذا اليوم.</p>
-            <p className="limit-reset">سيتم إعادة تعيين الحد في منتصف الليل.</p>
-            <button className="limit-btn" onClick={() => setShowLimitModal(false)}>حسناً</button>
-          </div>
-        </div>
-      )}
+      {/* ── MAIN AREA ── */}
+      <div className="main-area">
+        {/* Chat column on the right */}
+        <div className="chat-col">
+          <div className="messages-scroll" ref={scrollRef}>
 
-      {/* ── Settings modal ── */}
-      {showSettingsModal && (
-        <div className="modal-overlay" onClick={() => setShowSettingsModal(false)}>
-          <div className="settings-modal-content" onClick={e => e.stopPropagation()}>
-
-            <div className="settings-header">
-              <div>
-                <h2>⚙️ إعدادات المحادثة</h2>
-                <p className="settings-subtitle">خصص تجربة التعلم الخاصة بك</p>
+            {/* existing messages */}
+            {transcript.map((m, i) => (
+              <div key={i} className={`bubble-row ${m.role}`}>
+                {m.role === "assistant" && (
+                  <img src={TEACHER.pic} alt={TEACHER.name} className="bubble-avatar"/>
+                )}
+                <div className={`bubble ${m.role}`}>
+                  <RichMessage text={m.text} isUser={m.role === "user"}/>
+                </div>
               </div>
-              <button className="settings-close" onClick={() => setShowSettingsModal(false)}>✕</button>
-            </div>
+            ))}
 
-            <div className="settings-body">
-
-              {/* Teacher */}
-              <div className="settings-card teacher-card">
-                <div className="card-icon">👤</div>
-                <div>
-                  <label className="settings-label">المعلم</label>
-                  <div className="teacher-info">
-                    <img src={TEACHER.pic} alt={TEACHER.name} className="teacher-mini-pic" />
-                    <span className="teacher-name-text">{TEACHER.name}</span>
+            {/* live speech text while recording */}
+            {isRecording && liveText && (
+              <div className="live-bubble-wrap">
+                <div className="live-bubble">
+                  <span className="live-badge">LIVE</span>
+                  <div>جاري الاستماع إليك...</div>
+                  <div className="live-pulse">
+                    <div className="lp-dot"/><div className="lp-dot"/><div className="lp-dot"/>
+                    <span>يستمع</span>
                   </div>
                 </div>
               </div>
+            )}
 
-              {/* Topic */}
-              <div className="settings-card">
-                <div className="card-icon">📚</div>
-                <div style={{ flex: 1 }}>
-                  <label className="settings-label">موضوع المحادثة</label>
-                  <input
-                    type="text"
-                    className="settings-input"
-                    value={settings.topic}
-                    onChange={e => setSettings(s => ({ ...s, topic: e.target.value }))}
-                    placeholder="ما هو موضوع المحادثة؟"
-                  />
-                  <p className="settings-hint">اترك فارغاً للمحادثة العامة</p>
+            {/* thinking dots while processing */}
+            {isProcessing && (
+              <div className="bubble-row assistant">
+                <img src={TEACHER.pic} alt={TEACHER.name} className="bubble-avatar"/>
+                <div className="thinking-bubble">
+                  <div className="dot"/><div className="dot"/><div className="dot"/>
                 </div>
+              </div>
+            )}
+
+          </div>
+        </div>
+      </div>
+
+      {/* ── BOTTOM CONTROLS ── */}
+      <div className="bottom-bar">
+        {error && <div className="err">{error}</div>}
+
+        {/* interaction slots */}
+        <div className="slots-row">
+          <span className="slot-label">التفاعلات:</span>
+          {Array.from({ length: DAILY_LIMIT }).map((_, i) => (
+            <div key={i} className={`slot ${i < usedSlots ? "used" : "empty"}`}/>
+          ))}
+          <span className="slot-label">{remaining} متبقية</span>
+        </div>
+
+        {/* buttons */}
+        <div className="ctrl-row">
+
+          {/* end call */}
+          <button className="sec-btn danger" onClick={() => window.history.back()} title="إنهاء المكالمة">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+              <path d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08c-.18-.17-.29-.42-.29-.7 0-.28.11-.53.29-.71C3.34 8.78 7.46 7 12 7s8.66 1.78 11.71 4.67c.18.18.29.43.29.71 0 .28-.11.53-.29.71l-2.48 2.48c-.18.18-.43.29-.71.29-.27 0-.52-.11-.7-.28-.79-.74-1.69-1.36-2.67-1.85-.33-.16-.56-.5-.56-.9v-3.1C15.15 9.25 13.6 9 12 9z"/>
+            </svg>
+          </button>
+
+          {/* volume */}
+          <button className={`sec-btn ${volOn ? "active-vol" : ""}`} onClick={() => setVolOn(p => !p)} title={volOn ? "كتم الصوت" : "تشغيل الصوت"}>
+            {volOn
+              ? <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="20" height="20"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+              : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="20" height="20"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+            }
+          </button>
+
+          {/* MIC — main */}
+          <button
+            className={`mic-btn ${isRecording ? "recording" : ""}`}
+            onClick={isRecording ? stopRecording : startRecording}
+            disabled={isProcessing || remaining <= 0}
+            title={isRecording ? "إيقاف" : "تحدث"}
+          >
+            {isRecording
+              ? <svg viewBox="0 0 24 24" fill="currentColor" width="26" height="26"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+              : <svg viewBox="0 0 24 24" fill="currentColor" width="26" height="26"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+            }
+          </button>
+
+          {/* clear chat */}
+          <button className="sec-btn" onClick={() => setTranscript([])} title="مسح المحادثة">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="19" height="19"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+          </button>
+
+          {/* settings shortcut */}
+          <button className="sec-btn" onClick={() => setShowSettings(true)} title="الإعدادات">
+            <GearIcon/>
+          </button>
+
+        </div>
+      </div>
+
+      {/* ── SETTINGS BOTTOM SHEET ── */}
+      {showSettings && (
+        <div className={`modal-backdrop`} onClick={() => setShowSettings(false)}>
+          <div className="sheet" onClick={e => e.stopPropagation()}>
+            <div className="sheet-handle"/>
+            <div className="sheet-header">
+              <h3>⚙️ إعدادات المحادثة</h3>
+              <button className="sheet-close" onClick={() => setShowSettings(false)}>✕</button>
+            </div>
+
+            <div className="sheet-body">
+              {/* Topic */}
+              <div className="setting-section">
+                <h4>الموضوع</h4>
+                <input className="setting-input" type="text" value={settings.topic} onChange={e => setSettings(s => ({...s, topic: e.target.value}))} placeholder="ما هو موضوع المحادثة؟"/>
               </div>
 
               {/* Style */}
-              <div className="settings-card">
-                <div className="card-icon">💬</div>
-                <div style={{ flex: 1 }}>
-                  <label className="settings-label">أسلوب المحادثة</label>
-                  <div className="settings-grid">
-                    {[{ value: "conversational", label: "ودي", emoji: "😊" }, { value: "professional", label: "رسمي", emoji: "👔" }, { value: "enthusiastic", label: "متحمس", emoji: "🎉" }, { value: "socratic", label: "سقراطي", emoji: "🤔" }].map(o => (
-                      <button key={o.value} className={`settings-option ${settings.speakingStyle === o.value ? "active" : ""}`} onClick={() => setSettings(s => ({ ...s, speakingStyle: o.value }))}>
-                        <span className="option-emoji">{o.emoji}</span><span>{o.label}</span>
-                      </button>
-                    ))}
-                  </div>
+              <div className="setting-section">
+                <h4>أسلوب المحادثة</h4>
+                <div className="chips">
+                  {[{v:"conversational",l:"😊 ودي"},{v:"professional",l:"👔 رسمي"},{v:"enthusiastic",l:"🎉 متحمس"},{v:"socratic",l:"🤔 سقراطي"}].map(o=>(
+                    <button key={o.v} className={`chip ${settings.speakingStyle===o.v?"on":""}`} onClick={()=>setSettings(s=>({...s,speakingStyle:o.v}))}>{o.l}</button>
+                  ))}
                 </div>
               </div>
 
               {/* Length */}
-              <div className="settings-card">
-                <div className="card-icon">📏</div>
-                <div style={{ flex: 1 }}>
-                  <label className="settings-label">طول الإجابة</label>
-                  <div className="settings-grid">
-                    {[{ value: "veryShort", label: "قصيرة جداً", emoji: "⚡" }, { value: "short", label: "قصيرة", emoji: "📝" }, { value: "medium", label: "متوسطة", emoji: "📄" }, { value: "detailed", label: "مفصلة", emoji: "📚" }].map(o => (
-                      <button key={o.value} className={`settings-option ${settings.responseLength === o.value ? "active" : ""}`} onClick={() => setSettings(s => ({ ...s, responseLength: o.value }))}>
-                        <span className="option-emoji">{o.emoji}</span><span>{o.label}</span>
-                      </button>
-                    ))}
-                  </div>
+              <div className="setting-section">
+                <h4>طول الإجابة</h4>
+                <div className="chips">
+                  {[{v:"veryShort",l:"⚡ قصيرة جداً"},{v:"short",l:"📝 قصيرة"},{v:"medium",l:"📄 متوسطة"},{v:"detailed",l:"📚 مفصلة"}].map(o=>(
+                    <button key={o.v} className={`chip ${settings.responseLength===o.v?"on":""}`} onClick={()=>setSettings(s=>({...s,responseLength:o.v}))}>{o.l}</button>
+                  ))}
                 </div>
               </div>
 
               {/* Difficulty */}
-              <div className="settings-card">
-                <div className="card-icon">🎯</div>
-                <div style={{ flex: 1 }}>
-                  <label className="settings-label">مستوى الصعوبة</label>
-                  <div className="difficulty-selector">
-                    {[{ value: "beginner", label: "مبتدئ", color: "#4ade80", icon: "🌱" }, { value: "easy", label: "سهل", color: "#60a5fa", icon: "📘" }, { value: "medium", label: "متوسط", color: "#fbbf24", icon: "📙" }, { value: "advanced", label: "متقدم", color: "#f87171", icon: "🔥" }].map(o => (
-                      <button key={o.value} className={`difficulty-option ${settings.difficultyLevel === o.value ? "active" : ""}`} style={{ "--level-color": o.color }} onClick={() => setSettings(s => ({ ...s, difficultyLevel: o.value }))}>
-                        <span className="difficulty-icon">{o.icon}</span><span>{o.label}</span>
-                      </button>
-                    ))}
-                  </div>
+              <div className="setting-section">
+                <h4>مستوى الصعوبة</h4>
+                <div className="chips">
+                  {[{v:"beginner",l:"🌱 مبتدئ"},{v:"easy",l:"📘 سهل"},{v:"medium",l:"📙 متوسط"},{v:"advanced",l:"🔥 متقدم"}].map(o=>(
+                    <button key={o.v} className={`chip ${settings.difficultyLevel===o.v?"on":""}`} onClick={()=>setSettings(s=>({...s,difficultyLevel:o.v}))}>{o.l}</button>
+                  ))}
                 </div>
               </div>
 
               {/* Toggles */}
-              <div className="settings-card">
-                <div className="card-icon">✨</div>
-                <div style={{ flex: 1 }}>
-                  <label className="settings-label">خيارات إضافية</label>
-                  <div className="toggle-options">
-                    {[
-                      { key: "includeExamples", icon: "💡", title: "تضمين أمثلة",       desc: "إضافة أمثلة عملية للتوضيح" },
-                      { key: "useAnalogies",    icon: "🎨", title: "استخدام التشبيهات", desc: "شرح المفاهيم بالتشبيهات والاستعارات" },
-                      { key: "encouragement",   icon: "🌟", title: "التشجيع والمدح",    desc: "تشجيع الطالب عند الإجابة الصحيحة" },
-                    ].map(t => (
-                      <label key={t.key} className="toggle-item">
-                        <div className="toggle-info">
-                          <span className="toggle-icon">{t.icon}</span>
-                          <div>
-                            <div className="toggle-title">{t.title}</div>
-                            <div className="toggle-desc">{t.desc}</div>
-                          </div>
-                        </div>
-                        <input type="checkbox" className="toggle-checkbox" checked={settings[t.key]} onChange={e => setSettings(s => ({ ...s, [t.key]: e.target.checked }))} />
-                        <div className="toggle-switch" />
-                      </label>
-                    ))}
-                  </div>
+              <div className="setting-section">
+                <h4>خيارات إضافية</h4>
+                <div className="toggles">
+                  {[
+                    {k:"includeExamples", i:"💡", t:"تضمين أمثلة",       d:"إضافة أمثلة عملية للتوضيح"},
+                    {k:"useAnalogies",    i:"🎨", t:"استخدام التشبيهات", d:"شرح المفاهيم بالتشبيهات"},
+                    {k:"encouragement",   i:"🌟", t:"التشجيع والمدح",    d:"تشجيع الطالب عند الإجابة الصحيحة"},
+                  ].map(t => (
+                    <label key={t.k} className="tgl">
+                      <div className="tgl-left">
+                        <span className="tgl-ico">{t.i}</span>
+                        <div><div className="tgl-label">{t.t}</div><div className="tgl-desc">{t.d}</div></div>
+                      </div>
+                      <input type="checkbox" className="tgl-chk" checked={settings[t.k]} onChange={e => setSettings(s => ({...s, [t.k]: e.target.checked}))}/>
+                      <div className="tgl-sw"/>
+                    </label>
+                  ))}
                 </div>
               </div>
-
             </div>
 
-            <div className="settings-footer">
-              <button className="settings-btn-secondary" onClick={() => setSettings(DEFAULT_SETTINGS)}>إعادة تعيين</button>
-              <button className="settings-btn-primary" onClick={() => { setShowSettingsModal(false); setTranscript([]); }}>
-                <span>حفظ الإعدادات</span><span>✓</span>
-              </button>
+            <div className="sheet-footer">
+              <button className="sheet-reset" onClick={() => setSettings(DEFAULT_SETTINGS)}>إعادة تعيين</button>
+              <button className="sheet-save" onClick={() => { setShowSettings(false); setTranscript([]); }}>حفظ الإعدادات ✓</button>
             </div>
+          </div>
+        </div>
+      )}
 
+      {/* ── LIMIT MODAL ── */}
+      {showLimit && (
+        <div className="modal-backdrop limit-center" onClick={() => setShowLimit(false)}>
+          <div className="limit-card" onClick={e => e.stopPropagation()}>
+            <span className="emoji">🚫</span>
+            <h3>وصلت إلى الحد اليومي</h3>
+            <p>لقد استخدمت جميع تفاعلاتك الصوتية الـ {DAILY_LIMIT} لهذا اليوم.</p>
+            <p className="note">سيتم إعادة تعيين الحد في منتصف الليل.</p>
+            <button className="limit-ok" onClick={() => setShowLimit(false)}>حسناً</button>
           </div>
         </div>
       )}
