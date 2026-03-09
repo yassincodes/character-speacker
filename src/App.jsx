@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-//
+
 const TEACHER = {
   name: "حسوب",
   pic: "https://res.cloudinary.com/dw45jvxmf/image/upload/v1772363764/download_2_eugyiz.jpg",
@@ -42,13 +42,6 @@ function buildSystemPrompt(s) {
   return p;
 }
 
-const GearIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
-    <circle cx="12" cy="12" r="3"/>
-    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-  </svg>
-);
-
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap');
 
@@ -63,7 +56,6 @@ const STYLES = `
     width: 100vw;
   }
 
-  /* ── SHELL ── */
   .shell {
     width: 100vw;
     height: 100vh;
@@ -74,7 +66,6 @@ const STYLES = `
     overflow: hidden;
   }
 
-  /* ── VIDEO BACKGROUND ── */
   .video-bg {
     position: absolute;
     inset: 0;
@@ -89,7 +80,6 @@ const STYLES = `
     display: block;
     background: #1a1a1a;
   }
-  /* subtle vignette only at bottom and top for UI legibility */
   .video-bg::after {
     content: '';
     position: absolute;
@@ -100,7 +90,6 @@ const STYLES = `
     pointer-events: none;
   }
 
-  /* ── TOP BAR ── */
   .top-bar {
     position: relative;
     z-index: 10;
@@ -137,6 +126,7 @@ const STYLES = `
   .status-dot.processing { background: #f59e0b; box-shadow: 0 0 6px rgba(245,158,11,0.8); }
   .status-dot.speaking { background: #3b82f6; box-shadow: 0 0 6px rgba(59,130,246,0.8); }
   @keyframes sdPulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+
   .tb-right { display: flex; align-items: center; gap: 10px; }
   .timer-chip {
     background: rgba(0,0,0,0.45);
@@ -150,13 +140,12 @@ const STYLES = `
     border: 1px solid rgba(255,255,255,0.12);
     border-radius: 50%; width: 36px; height: 36px;
     display: flex; align-items: center; justify-content: center;
-    color: rgba(255,255,255,0.75); cursor: pointer;
+    color: rgba(255,255,255,0.75); cursor: pointer; font-size: 18px;
     transition: all 0.2s;
   }
   .icon-btn:hover { background: rgba(255,255,255,0.2); color: white; }
   .icon-btn.gear:hover { transform: rotate(60deg); }
 
-  /* ── MAIN CONTENT (middle flex area) ── */
   .main-area {
     position: relative;
     z-index: 10;
@@ -166,7 +155,6 @@ const STYLES = `
     min-height: 0;
   }
 
-  /* ── CHAT COLUMN ── */
   .chat-col {
     width: 380px;
     max-width: 44vw;
@@ -192,7 +180,6 @@ const STYLES = `
     to   { opacity: 1; transform: none; }
   }
 
-  /* ── ROW wrappers ── */
   .bubble-row { display: flex; align-items: flex-end; gap: 8px; }
   .bubble-row.user      { flex-direction: row-reverse; }
   .bubble-row.assistant { flex-direction: row; }
@@ -206,7 +193,6 @@ const STYLES = `
     margin-bottom: 2px;
   }
 
-  /* ── BASE BUBBLE ── */
   .bubble {
     max-width: 272px;
     border-radius: 20px;
@@ -217,7 +203,6 @@ const STYLES = `
     overflow: hidden;
   }
 
-  /* ── USER bubble ── */
   .bubble.user {
     background: linear-gradient(135deg, #0084ff 0%, #0066d6 100%);
     color: white;
@@ -226,7 +211,6 @@ const STYLES = `
     box-shadow: 0 4px 16px rgba(0,132,255,0.3);
   }
 
-  /* ── ASSISTANT bubble ── */
   .bubble.assistant {
     background: rgba(28,28,32,0.88);
     backdrop-filter: blur(20px);
@@ -237,12 +221,8 @@ const STYLES = `
     box-shadow: 0 4px 20px rgba(0,0,0,0.35);
     padding: 0;
   }
-  /* inner padding so equation blocks can go edge-to-edge */
   .bubble.assistant .bubble-text { padding: 12px 15px; }
 
-  /* ── RICH CONTENT inside assistant bubble ── */
-
-  /* inline code */
   .bubble .inline-code {
     background: rgba(255,255,255,0.1);
     border: 1px solid rgba(255,255,255,0.14);
@@ -253,7 +233,6 @@ const STYLES = `
     color: #7dd3fc;
   }
 
-  /* block code */
   .bubble .code-block {
     background: rgba(0,0,0,0.55);
     border: 1px solid rgba(255,255,255,0.1);
@@ -276,10 +255,8 @@ const STYLES = `
     white-space: pre-wrap; overflow-x: auto;
   }
 
-  /* bold */
   .bubble .bold-text { font-weight: 800; color: white; }
 
-  /* block equation */
   .bubble .eq-block {
     background: rgba(255,255,255,0.05);
     border: 1px solid rgba(255,255,255,0.1);
@@ -292,7 +269,6 @@ const STYLES = `
   }
   .bubble .eq-block .katex { font-size: 1.1em; }
 
-  /* inline equation */
   .bubble .eq-inline {
     background: rgba(255,255,255,0.08);
     border-radius: 4px;
@@ -302,16 +278,12 @@ const STYLES = `
     vertical-align: middle;
   }
 
-  /* bullet / numbered list */
   .bubble .msg-list { padding-right: 4px; padding-top: 2px; display: flex; flex-direction: column; gap: 4px; }
   .bubble .msg-list-item { display: flex; gap: 8px; align-items: flex-start; }
   .bubble .msg-list-bullet { color: #0084ff; font-weight: 800; flex-shrink: 0; margin-top: 1px; }
   .bubble .msg-list-num   { color: #60a5fa; font-weight: 800; flex-shrink: 0; min-width: 16px; }
-
-  /* separator line between sections */
   .bubble .msg-divider { height: 1px; background: rgba(255,255,255,0.08); margin: 8px 0; }
 
-  /* ── LIVE RECORDING BUBBLE ── */
   .live-bubble-wrap { display: flex; flex-direction: row-reverse; align-items: flex-end; gap: 8px; }
   .live-bubble {
     max-width: 272px;
@@ -338,7 +310,6 @@ const STYLES = `
   .lp-dot:nth-child(2){animation-delay:0.15s;} .lp-dot:nth-child(3){animation-delay:0.3s;}
   @keyframes liveDot { 0%,100%{transform:scale(0.5);opacity:0.4;} 50%{transform:scale(1.2);opacity:1;} }
 
-  /* ── THINKING DOTS ── */
   .thinking-bubble {
     background: rgba(28,28,32,0.85);
     backdrop-filter: blur(16px);
@@ -361,7 +332,6 @@ const STYLES = `
     40%          { transform: translateY(-7px); opacity: 1; }
   }
 
-  /* ── BOTTOM CONTROLS ── */
   .bottom-bar {
     position: relative; z-index: 10; flex-shrink: 0;
     padding: 16px 22px 28px;
@@ -369,43 +339,40 @@ const STYLES = `
     display: flex; flex-direction: column; align-items: center; gap: 14px;
   }
 
-  /* error */
   .err { background: rgba(239,68,68,0.2); border: 1px solid rgba(239,68,68,0.4); color: #fca5a5; font-size: 12px; padding: 8px 18px; border-radius: 20px; text-align: center; }
 
-  /* slots */
   .slots-row { display: flex; align-items: center; gap: 8px; }
   .slot { width: 32px; height: 4px; border-radius: 2px; transition: all 0.3s; }
   .slot.used { background: #0084ff; box-shadow: 0 0 6px rgba(0,132,255,0.5); }
   .slot.empty { background: rgba(255,255,255,0.15); }
   .slot-label { color: rgba(255,255,255,0.45); font-size: 11px; }
 
-  /* control buttons row */
   .ctrl-row { display: flex; align-items: center; justify-content: center; gap: 18px; }
 
-  /* secondary buttons */
   .sec-btn {
-    width: 48px; height: 48px; border-radius: 50%;
+    width: 52px; height: 52px; border-radius: 50%;
     background: rgba(255,255,255,0.12);
     border: 1px solid rgba(255,255,255,0.16);
     display: flex; align-items: center; justify-content: center;
-    color: white; cursor: pointer; font-size: 18px;
+    color: white; cursor: pointer; font-size: 22px;
     transition: all 0.2s cubic-bezier(0.34,1.56,0.64,1);
     backdrop-filter: blur(8px);
+    line-height: 1;
   }
   .sec-btn:hover { background: rgba(255,255,255,0.22); transform: scale(1.06); }
   .sec-btn.danger { background: rgba(239,68,68,0.25); border-color: rgba(239,68,68,0.4); }
   .sec-btn.danger:hover { background: rgba(239,68,68,0.45); }
   .sec-btn.active-vol { background: rgba(234,179,8,0.2); border-color: rgba(234,179,8,0.4); }
 
-  /* MAIN MIC BUTTON */
   .mic-btn {
-    width: 68px; height: 68px; border-radius: 50%;
+    width: 72px; height: 72px; border-radius: 50%;
     background: #0084ff;
     border: none;
     display: flex; align-items: center; justify-content: center;
-    color: white; cursor: pointer; font-size: 26px;
+    color: white; cursor: pointer; font-size: 30px;
     transition: all 0.25s cubic-bezier(0.34,1.56,0.64,1);
     box-shadow: 0 0 0 0 rgba(0,132,255,0.4), 0 8px 24px rgba(0,132,255,0.35);
+    line-height: 1;
   }
   .mic-btn:hover:not(:disabled) { transform: scale(1.07); box-shadow: 0 0 0 6px rgba(0,132,255,0.15), 0 12px 30px rgba(0,132,255,0.4); }
   .mic-btn.recording {
@@ -415,11 +382,10 @@ const STYLES = `
   }
   @keyframes micPulse {
     0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.35), 0 8px 24px rgba(239,68,68,0.3); }
-    50%      { box-shadow: 0 0 0 12px rgba(239,68,68,0.1), 0 8px 24px rgba(239,68,68,0.3); }
+    50%      { box-shadow: 0 0 0 14px rgba(239,68,68,0.1), 0 8px 24px rgba(239,68,68,0.3); }
   }
   .mic-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; }
 
-  /* ── SETTINGS MODAL ── */
   .modal-backdrop {
     position: fixed; inset: 0; background: rgba(0,0,0,0.7);
     backdrop-filter: blur(8px); z-index: 100;
@@ -474,10 +440,7 @@ const STYLES = `
   .sheet-save { flex: 2; background: #0084ff; border: none; border-radius: 12px; color: white; font-size: 14px; font-weight: 700; font-family: 'Tajawal',sans-serif; padding: 13px; cursor: pointer; transition: all 0.2s; }
   .sheet-save:hover { background: #0073e0; transform: translateY(-1px); }
 
-  /* ── LIMIT MODAL ── */
-  .limit-center {
-    display: flex; align-items: center; justify-content: center;
-  }
+  .limit-center { display: flex; align-items: center; justify-content: center; }
   .limit-card { background: #1c1c1e; border-radius: 20px; padding: 36px 28px; text-align: center; max-width: 320px; width: 90%; animation: popIn 0.35s cubic-bezier(0.34,1.56,0.64,1) both; }
   @keyframes popIn { from{opacity:0;transform:scale(0.88);} to{opacity:1;transform:none;} }
   .limit-card .emoji { font-size: 50px; display: block; margin-bottom: 16px; }
@@ -490,19 +453,16 @@ const STYLES = `
 
 const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API;
 
-// ── Load KaTeX from CDN once ─────────────────────────────────────────────────
 let katexLoaded = false;
 let katexLoading = null;
 function loadKatex() {
   if (katexLoaded) return Promise.resolve();
   if (katexLoading) return katexLoading;
   katexLoading = new Promise(resolve => {
-    // CSS
     const link = document.createElement("link");
     link.rel = "stylesheet";
     link.href = "https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css";
     document.head.appendChild(link);
-    // JS
     const script = document.createElement("script");
     script.src = "https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js";
     script.onload = () => { katexLoaded = true; resolve(); };
@@ -520,57 +480,47 @@ function renderKatex(tex, display) {
   return tex;
 }
 
-// ── Rich Message Renderer ────────────────────────────────────────────────────
 function RichMessage({ text, isUser }) {
   const [katexReady, setKatexReady] = useState(katexLoaded);
   useEffect(() => { loadKatex().then(() => setKatexReady(true)); }, []);
 
   if (isUser) return <span>{text}</span>;
 
-  // Parse text into segments: block-eq, inline-eq, code-block, bold, list, plain
   const segments = [];
   let remaining = text;
 
   while (remaining.length > 0) {
-    // 1. Block equation $$...$$
     const blockEqMatch = remaining.match(/^\$\$([\s\S]+?)\$\$/);
     if (blockEqMatch) {
       segments.push({ type: "block-eq", content: blockEqMatch[1] });
       remaining = remaining.slice(blockEqMatch[0].length);
       continue;
     }
-    // 2. Code block ```...```
     const codeMatch = remaining.match(/^```(\w*)\n?([\s\S]*?)```/);
     if (codeMatch) {
       segments.push({ type: "code", lang: codeMatch[1] || "code", content: codeMatch[2] });
       remaining = remaining.slice(codeMatch[0].length);
       continue;
     }
-    // 3. Line-by-line: process current line
     const nlIdx = remaining.indexOf("\n");
     const line = nlIdx === -1 ? remaining : remaining.slice(0, nlIdx + 1);
     remaining = nlIdx === -1 ? "" : remaining.slice(nlIdx + 1);
 
-    // bullet list
     const bulletMatch = line.match(/^[\-\*•]\s+(.+)/);
     if (bulletMatch) { segments.push({ type: "bullet", content: bulletMatch[1].trim() }); continue; }
 
-    // numbered list
     const numMatch = line.match(/^(\d+)[.)]\s+(.+)/);
     if (numMatch) { segments.push({ type: "numbered", num: numMatch[1], content: numMatch[2].trim() }); continue; }
 
-    // plain line (may contain inline $...$ and **bold** and `code`)
     if (line.trim()) segments.push({ type: "line", content: line.replace(/\n$/, "") });
     else if (segments.length > 0) segments.push({ type: "spacer" });
   }
 
-  // Inline parser: handles $...$, **bold**, `code`
   function parseInline(str) {
     const parts = [];
     let s = str;
     let key = 0;
     while (s.length > 0) {
-      // inline eq
       const ieq = s.match(/^\$([^$\n]+?)\$/);
       if (ieq) {
         parts.push(
@@ -580,13 +530,10 @@ function RichMessage({ text, isUser }) {
         );
         s = s.slice(ieq[0].length); continue;
       }
-      // bold
       const bold = s.match(/^\*\*(.+?)\*\*/);
       if (bold) { parts.push(<span key={key++} className="bold-text">{bold[1]}</span>); s = s.slice(bold[0].length); continue; }
-      // inline code
       const ic = s.match(/^`([^`]+)`/);
       if (ic) { parts.push(<code key={key++} className="inline-code">{ic[1]}</code>); s = s.slice(ic[0].length); continue; }
-      // plain char
       const nextSpecial = s.search(/\$|\*\*|`/);
       if (nextSpecial === -1) { parts.push(s); break; }
       parts.push(s.slice(0, nextSpecial));
@@ -595,7 +542,6 @@ function RichMessage({ text, isUser }) {
     return parts;
   }
 
-  // Group bullets/numbered into lists
   const grouped = [];
   let i = 0;
   while (i < segments.length) {
@@ -660,7 +606,7 @@ export default function App() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSpeaking,   setIsSpeaking]   = useState(false);
   const [transcript,   setTranscript]   = useState([]);
-  const [liveText,     setLiveText]     = useState("");   // text user is currently saying
+  const [liveText,     setLiveText]     = useState("");
   const [error,        setError]        = useState("");
   const [callDuration, setCallDuration] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
@@ -676,24 +622,20 @@ export default function App() {
   const audioSrcRef = useRef(null);
   const scrollRef   = useRef(null);
 
-  // inject CSS
   useEffect(() => {
     const el = document.createElement("style"); el.textContent = STYLES;
     document.head.appendChild(el); return () => el.remove();
   }, []);
 
-  // timer
   useEffect(() => {
     const t = setInterval(() => setCallDuration(p => p + 1), 1000);
     return () => clearInterval(t);
   }, []);
 
-  // auto-scroll
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [transcript, liveText, isProcessing]);
 
-  // cleanup
   useEffect(() => {
     return () => { try { audioSrcRef.current?.stop(); } catch{} audioCtxRef.current?.close(); };
   }, []);
@@ -713,7 +655,6 @@ export default function App() {
       };
       mediaRecRef.current.start();
       setIsRecording(true); setVideoState("recording");
-      // show live recording indicator
       setLiveText("🎤 جاري الاستماع...");
       useLimit(); setRemaining(getRemaining());
     } catch(err) { setError("لا يمكن الوصول إلى الميكروفون"); }
@@ -729,7 +670,6 @@ export default function App() {
 
   const processAudio = async (blob) => {
     try {
-      // 1. Transcribe
       const form = new FormData();
       form.append("file", blob, "audio.webm");
       form.append("model", "gpt-4o-mini-transcribe");
@@ -740,11 +680,9 @@ export default function App() {
       if (!tr.ok) throw new Error("فشل تحويل الصوت إلى نص");
       const { text: userText } = await tr.json();
 
-      // show transcribed text immediately
       const next = [...transcript, { role: "user", text: userText }];
       setTranscript(next);
 
-      // 2. Chat
       const cr = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
@@ -757,7 +695,6 @@ export default function App() {
       const aiText = (await cr.json()).choices[0].message.content;
       setTranscript(p => [...p, { role: "assistant", text: aiText }]);
 
-      // 3. TTS
       const tts = await fetch("https://api.openai.com/v1/audio/speech", {
         method: "POST",
         headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
@@ -789,7 +726,7 @@ export default function App() {
 
   return (
     <div className="shell">
-      {/* ── VIDEO BACKGROUND ── */}
+      {/* VIDEO BACKGROUND */}
       <div className="video-bg">
         {videoState === "idle"
           ? <img src={TEACHER.pic} alt={TEACHER.name}/>
@@ -797,7 +734,7 @@ export default function App() {
         }
       </div>
 
-      {/* ── TOP BAR ── */}
+      {/* TOP BAR */}
       <div className="top-bar">
         <div className="tb-left">
           <button className="back-btn" onClick={() => window.history.back()}>←</button>
@@ -814,19 +751,17 @@ export default function App() {
         </div>
         <div className="tb-right">
           <div className="timer-chip">{formatTime(callDuration)}</div>
-          <button className="icon-btn gear" onClick={() => setShowSettings(true)}>
-            <GearIcon/>
+          <button className="icon-btn gear" onClick={() => setShowSettings(true)} title="الإعدادات">
+            ⚙️
           </button>
         </div>
       </div>
 
-      {/* ── MAIN AREA ── */}
+      {/* MAIN AREA */}
       <div className="main-area">
-        {/* Chat column on the right */}
         <div className="chat-col">
           <div className="messages-scroll" ref={scrollRef}>
 
-            {/* existing messages */}
             {transcript.map((m, i) => (
               <div key={i} className={`bubble-row ${m.role}`}>
                 {m.role === "assistant" && (
@@ -838,7 +773,6 @@ export default function App() {
               </div>
             ))}
 
-            {/* live speech text while recording */}
             {isRecording && liveText && (
               <div className="live-bubble-wrap">
                 <div className="live-bubble">
@@ -852,7 +786,6 @@ export default function App() {
               </div>
             )}
 
-            {/* thinking dots while processing */}
             {isProcessing && (
               <div className="bubble-row assistant">
                 <img src={TEACHER.pic} alt={TEACHER.name} className="bubble-avatar"/>
@@ -866,11 +799,10 @@ export default function App() {
         </div>
       </div>
 
-      {/* ── BOTTOM CONTROLS ── */}
+      {/* BOTTOM CONTROLS */}
       <div className="bottom-bar">
         {error && <div className="err">{error}</div>}
 
-        {/* interaction slots */}
         <div className="slots-row">
           <span className="slot-label">التفاعلات:</span>
           {Array.from({ length: DAILY_LIMIT }).map((_, i) => (
@@ -879,22 +811,20 @@ export default function App() {
           <span className="slot-label">{remaining} متبقية</span>
         </div>
 
-        {/* buttons */}
         <div className="ctrl-row">
 
-          {/* end call */}
+          {/* End call */}
           <button className="sec-btn danger" onClick={() => window.history.back()} title="إنهاء المكالمة">
-            <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
-              <path d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08c-.18-.17-.29-.42-.29-.7 0-.28.11-.53.29-.71C3.34 8.78 7.46 7 12 7s8.66 1.78 11.71 4.67c.18.18.29.43.29.71 0 .28-.11.53-.29.71l-2.48 2.48c-.18.18-.43.29-.71.29-.27 0-.52-.11-.7-.28-.79-.74-1.69-1.36-2.67-1.85-.33-.16-.56-.5-.56-.9v-3.1C15.15 9.25 13.6 9 12 9z"/>
-            </svg>
+            📵
           </button>
 
-          {/* volume */}
-          <button className={`sec-btn ${volOn ? "active-vol" : ""}`} onClick={() => setVolOn(p => !p)} title={volOn ? "كتم الصوت" : "تشغيل الصوت"}>
-            {volOn
-              ? <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="20" height="20"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-              : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="20" height="20"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
-            }
+          {/* Volume */}
+          <button
+            className={`sec-btn ${volOn ? "active-vol" : ""}`}
+            onClick={() => setVolOn(p => !p)}
+            title={volOn ? "كتم الصوت" : "تشغيل الصوت"}
+          >
+            {volOn ? "🔊" : "🔇"}
           </button>
 
           {/* MIC — main */}
@@ -904,28 +834,25 @@ export default function App() {
             disabled={isProcessing || remaining <= 0}
             title={isRecording ? "إيقاف" : "تحدث"}
           >
-            {isRecording
-              ? <svg viewBox="0 0 24 24" fill="currentColor" width="26" height="26"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
-              : <svg viewBox="0 0 24 24" fill="currentColor" width="26" height="26"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
-            }
+            {isRecording ? "⏹️" : "🎤"}
           </button>
 
-          {/* clear chat */}
+          {/* Clear chat */}
           <button className="sec-btn" onClick={() => setTranscript([])} title="مسح المحادثة">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="19" height="19"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+            🗑️
           </button>
 
-          {/* settings shortcut */}
+          {/* Settings */}
           <button className="sec-btn" onClick={() => setShowSettings(true)} title="الإعدادات">
-            <GearIcon/>
+            ⚙️
           </button>
 
         </div>
       </div>
 
-      {/* ── SETTINGS BOTTOM SHEET ── */}
+      {/* SETTINGS BOTTOM SHEET */}
       {showSettings && (
-        <div className={`modal-backdrop`} onClick={() => setShowSettings(false)}>
+        <div className="modal-backdrop" onClick={() => setShowSettings(false)}>
           <div className="sheet" onClick={e => e.stopPropagation()}>
             <div className="sheet-handle"/>
             <div className="sheet-header">
@@ -934,13 +861,11 @@ export default function App() {
             </div>
 
             <div className="sheet-body">
-              {/* Topic */}
               <div className="setting-section">
                 <h4>الموضوع</h4>
                 <input className="setting-input" type="text" value={settings.topic} onChange={e => setSettings(s => ({...s, topic: e.target.value}))} placeholder="ما هو موضوع المحادثة؟"/>
               </div>
 
-              {/* Style */}
               <div className="setting-section">
                 <h4>أسلوب المحادثة</h4>
                 <div className="chips">
@@ -950,7 +875,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Length */}
               <div className="setting-section">
                 <h4>طول الإجابة</h4>
                 <div className="chips">
@@ -960,7 +884,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Difficulty */}
               <div className="setting-section">
                 <h4>مستوى الصعوبة</h4>
                 <div className="chips">
@@ -970,7 +893,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Toggles */}
               <div className="setting-section">
                 <h4>خيارات إضافية</h4>
                 <div className="toggles">
@@ -1000,7 +922,7 @@ export default function App() {
         </div>
       )}
 
-      {/* ── LIMIT MODAL ── */}
+      {/* LIMIT MODAL */}
       {showLimit && (
         <div className="modal-backdrop limit-center" onClick={() => setShowLimit(false)}>
           <div className="limit-card" onClick={e => e.stopPropagation()}>
