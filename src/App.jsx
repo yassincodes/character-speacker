@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-
+//
 const TEACHER = {
   name: "حسوب",
   pic: "https://res.cloudinary.com/dw45jvxmf/image/upload/v1772363764/download_2_eugyiz.jpg",
